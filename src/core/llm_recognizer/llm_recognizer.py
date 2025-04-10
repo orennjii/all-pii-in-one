@@ -27,7 +27,7 @@ class LLMRecognizer(EntityRecognizer):
 
     NAME = "LLMRecognizer"
 
-    SUPPORTED_LANGUAGES = ["en"] # 可以根据需要扩展或从配置加载
+    SUPPORTED_LANGUAGES = ["zh"]
 
     VERSION = "0.1.0"
 
@@ -40,10 +40,10 @@ class LLMRecognizer(EntityRecognizer):
         supported_entities: List[str],
         llm_client: BaseLLMClient,
         parser: BaseParser,
-        prompt_template: str, # 或者是一个更复杂的 Prompt 管理对象
+        prompt_template: str, # TODO 可以扩展为一个更复杂的 Prompt 管理对象
         prompt_format_vars: Optional[Dict[str, Any]] = None, # Prompt 模板中所需的额外变量
         name: Optional[str] = None,
-        supported_language: str = "en", # 默认支持英文
+        supported_language: str = "zh", # 默认支持中文
         version: Optional[str] = None,
         context: Optional[List[str]] = None,
         score_threshold: float = 0.5 # (可选) 可以根据 LLM 输出的置信度过滤
@@ -51,17 +51,17 @@ class LLMRecognizer(EntityRecognizer):
         """
         初始化 LLMRecognizer。
 
-        :param supported_entities: 此 Recognizer 实例应识别的实体列表 (例如 ["PERSON", "EMAIL"])。
-        :param llm_client: 用于与 LLM API 交互的客户端实例 (继承自 BaseLLMClient)。
-        :param parser: 用于解析 LLM 响应的解析器实例 (继承自 BaseParser)。
-        :param prompt_template: 用于生成 LLM 请求的 Prompt 模板字符串或标识符。
-                                (未来可以扩展为一个更复杂的 Prompt 管理对象)
-        :param prompt_format_vars: (可选) 传递给 Prompt 格式化器的额外变量字典。
-        :param name: (可选) Recognizer 的名称。默认为 "LLMRecognizer"。
-        :param supported_language: (可选) 此 Recognizer 支持的主要语言。默认为 "en"。
-        :param version: (可选) Recognizer 的版本。默认为 "0.1.0"。
-        :param context: (可选) 提供给 Recognizer 的上下文词列表。
-        :param score_threshold: (可选) 低于此分数的识别结果将被忽略。
+        Args:
+            supported_entities (List[str]): 此 Recognizer 实例应识别的实体列表 (例如 ["PERSON", "EMAIL"])。
+            llm_client (BaseLLMClient): 用于与 LLM API 交互的客户端实例 (继承自 BaseLLMClient)。
+            parser (BaseParser): 用于解析 LLM 响应的解析器实例 (继承自 BaseParser)。
+            prompt_template (str): 用于生成 LLM 请求的 Prompt 模板字符串或标识符。(未来可以扩展为一个更复杂的 Prompt 管理对象)
+            prompt_format_vars (Optional[Dict[str, Any]]): (可选) 传递给 Prompt 格式化器的额外变量字典。
+            name (Optional[str]): (可选) Recognizer 的名称。默认为 "LLMRecognizer"。
+            supported_language (str): (可选) 此 Recognizer 支持的主要语言。默认为 "zh"。
+            version (Optional[str]): (可选) Recognizer 的版本。默认为 "0.1.0"。
+            context (Optional[List[str]]): (可选) 提供给 Recognizer 的上下文词列表。
+            score_threshold (float): (可选) 低于此分数的识别结果将被忽略。
         """
         # 设置实例属性
         self.llm_client = llm_client
@@ -108,6 +108,7 @@ class LLMRecognizer(EntityRecognizer):
         #     self.prompt_content = "默认的 PII 检测 Prompt: 在以下文本中查找 PII：{text}" # 示例默认值
 
         # 目前假设 prompt_template 就是字符串模板本身
+        # TODO 替换为Prompt对象
         self.prompt_content = self.prompt_template
         logger.info(f"使用 Prompt 模板: {self.prompt_content[:100]}...") # 打印部分模板以供调试
 
@@ -130,14 +131,16 @@ class LLMRecognizer(EntityRecognizer):
         """
         使用 LLM 分析文本以查找指定的 PII 实体。
 
-        :param text: 要分析的输入文本。
-        :param entities: 要在此次分析中查找的实体类型列表。
+        Args:
+            text (str): 要分析的输入文本。
+            entities (List[str]): 要在此次分析中查找的实体类型列表。
                          注意：这会覆盖初始化时设置的 supported_entities，
                          允许更灵活的按需检测。
-        :param nlp_artifacts: (可选) 来自上游 NLP 引擎的分析结果 (例如词性、依赖关系)。
+            nlp_artifacts: (可选) 来自上游 NLP 引擎的分析结果 (例如词性、依赖关系)。
                                 LLM 可能不直接使用，但可以用于构建更复杂的 Prompt。
-        :param language: (可选) 文本的语言代码 (例如 'en', 'zh')。
-        :return: 一个 RecognizerResult 对象列表，包含找到的每个 PII 实体的信息。
+            language (Optional[str]): (可选) 文本的语言代码 (例如 'en', 'zh')。
+
+        Returns: 一个 RecognizerResult 对象列表，包含找到的每个 PII 实体的信息。
         """
         logger.debug(f"开始使用 {self.name} 分析文本...")
         results: List[RecognizerResult] = []
@@ -238,12 +241,14 @@ class LLMRecognizer(EntityRecognizer):
         """
         为 LLM 的识别结果构建 AnalysisExplanation 对象。
 
-        :param original_score: LLM 或解析器提供的原始分数。
-        :param validation_result: (可选) 验证步骤的结果。
-        :param recognizer_name: Recognizer 的名称。
-        :param pattern_name: (可选) 模式名称 (LLM 通常没有)。
-        :param pattern: (可选) 模式本身 (LLM 通常没有)。
-        :return: AnalysisExplanation 对象。
+        Args:
+            original_score (float): LLM 或解析器提供的原始分数。
+            validation_result (Optional[bool]): 验证步骤的结果。
+            recognizer_name (Optional[str]): Recognizer 的名称。
+            pattern_name (Optional[str]): 模式名称 (LLM 通常没有)。
+            pattern (Optional[str]): 模式本身 (LLM 通常没有)。
+            
+        Returns: AnalysisExplanation 对象。
         """
         explanation = AnalysisExplanation(
             recognizer=recognizer_name or self.name,
