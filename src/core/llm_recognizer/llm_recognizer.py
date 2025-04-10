@@ -1,11 +1,11 @@
 import logging
 from typing import List, Optional, Dict, Any
 
-# 从 presidio_analyzer 导入核心类
 from presidio_analyzer import EntityRecognizer, RecognizerResult, AnalysisExplanation
-# 从我们的自定义模块导入所需的组件
-from .llm_clients.base_client import BaseLLMClient # 导入 LLM 客户端基类
-from .parsers.base_parser import BaseParser        # 导入解析器基类
+
+from .llm_clients.base_client import BaseLLMClient
+from .parsers.base_parser import BaseParser
+from src.core.llm_recognizer.config import BaseLLMSettings
 # (可选) 导入 Prompt 加载和格式化工具
 # from .prompts.prompt_loader import load_and_format_prompt
 
@@ -86,9 +86,6 @@ class LLMRecognizer(EntityRecognizer):
             context=_context
         )
 
-        # 加载或准备 Recognizer 可能需要的资源（例如，加载 Prompt 文件）
-        self.load()
-
     def load(self) -> None:
         """
         加载 Recognizer 所需的资源。
@@ -162,17 +159,19 @@ class LLMRecognizer(EntityRecognizer):
             # 需要传入文本本身、要查找的实体列表等信息
             prompt_input_vars = {
                 "text": text,
-                "entities": ", ".join(current_entities), # 将实体列表格式化为字符串
-                **self.prompt_format_vars # 合并初始化时传入的额外变量
+                "supported_entities": "".join("- " + current_entity + "\n" for current_entity in current_entities),
+                **self.prompt_format_vars
             }
             # 示例：假设 prompt_content 是 "请在以下文本中查找 {entities}: {text}"
             formatted_prompt = self.prompt_content.format(**prompt_input_vars)
             logger.debug(f"格式化后的 Prompt (前 200 字符): {formatted_prompt[:200]}...")
+            print(f"格式化后的 Prompt: {formatted_prompt}")
 
             # 2. 调用 LLM 客户端
             logger.debug("向 LLM 发送请求...")
             llm_response = self.llm_client.generate(prompt=formatted_prompt)
             logger.debug(f"收到 LLM 响应 (前 200 字符): {llm_response[:200]}...")
+            print(f"LLM 响应: {llm_response}")
 
             # 3. 解析 LLM 响应
             # 使用配置的 parser 来解析 LLM 返回的原始文本或结构化数据
@@ -180,6 +179,7 @@ class LLMRecognizer(EntityRecognizer):
             # 解析器需要知道原始文本，以便计算实体的位置 (start, end)
             parsed_results = self.parser.parse(llm_response, original_text=text, entities=current_entities)
             logger.debug(f"解析得到 {len(parsed_results)} 个潜在结果。")
+            print(f"解析结果: {parsed_results}")
 
             # 4. 将解析结果转换为 Presidio RecognizerResult 对象
             for p_res in parsed_results:
@@ -227,7 +227,8 @@ class LLMRecognizer(EntityRecognizer):
             logger.error(f"在 {self.name} 分析过程中发生错误: {e}", exc_info=True)
             # 根据策略，可以选择返回空列表或重新抛出异常
 
-        logger.info(f"{self.name} 分析完成，找到 {len(results)} 个结果。")
+        print(f"{self.name} 分析完成，找到 {len(results)} 个结果。")
+        print(f"共有 {len(set([r.entity_type for r in results]))} 个唯一实体类型。分别是: {[r.entity_type for r in results]}")
         return results
 
     def build_explanation(
@@ -253,7 +254,6 @@ class LLMRecognizer(EntityRecognizer):
         explanation = AnalysisExplanation(
             recognizer=recognizer_name or self.name,
             original_score=original_score,
-            score=original_score, # 可以根据验证结果调整分数
             textual_explanation=f"Identified as {self.name} using LLM with score {original_score:.2f}", # 提供简单的文本解释
             pattern_name=pattern_name,
             pattern=pattern,
@@ -262,9 +262,3 @@ class LLMRecognizer(EntityRecognizer):
             # supportiv_context_word: Optional[str] = None, # 也可以尝试从 LLM 获取
         )
         return explanation
-
-    # EntityRecognizer 需要实现的属性方法
-    @property
-    def supported_entities(self) -> List[str]:
-        """返回此 Recognizer 支持的实体列表。"""
-        return self._supported_entities

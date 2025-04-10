@@ -17,14 +17,13 @@ from transformers import (
     pipeline
 )
 import numpy as np
-from datasets import Dataset
 from tqdm import tqdm
 
 from .base_client import BaseLLMClient
 
 logger = logging.getLogger("llm_recognizer.local_llm_client")
 
-
+# TODO : 尚未测试,未来使用本地模型进行测试
 class LocalLLMClient(BaseLLMClient):
     """
     本地LLM客户端实现，支持命名实体识别任务。

@@ -64,8 +64,6 @@ def main():
 
     Kate's social security number is 078-05-1126.  Her driver license? it is 1234567A.
     """
-    print(f'分词结果')
-    print([token.text for token in nlp_engine.process_text(text=cn_text, language="zh").tokens])
 
     # 分析并匿名化文本
     analyzed_results = analyzer.analyze(text=cn_text, language="zh")

@@ -49,13 +49,16 @@ from PIL import Image
 from presidio_image_redactor import ImageRedactorEngine
 
 # Get the image to redact using PIL lib (pillow)
+print("正在加载图片...")
 image = Image.open("./image.png")
 
 # Initialize the engine
 engine = ImageRedactorEngine()
 
+print("正在进行图片处理...")
 # Redact the image with pink color
 redacted_image = engine.redact(image, (255, 192, 203), ocr_kwargs={"lang": "chi_sim"})
 
 # save the redacted image 
 redacted_image.save("redacted_image.png")
+print("图片已保存为 redacted_image.png")
