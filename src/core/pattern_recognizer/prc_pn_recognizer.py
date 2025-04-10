@@ -22,25 +22,25 @@ class ChineseMobileNumberRecognizer(PatternRecognizer):
         Pattern(
             name="mobile_with_separator",
             # 带分隔符的手机号(空格、短横线或点号)
-            regex=r"\b1[3-9][\d\s\-\.]{9,13}\b",
+            regex=r"1[3-9][\d\s\-\.]{9,13}",
             score=0.7
         ),
         Pattern(
             name="mobile_with_country_code",
             # 带国家代码的手机号：+86或0086
-            regex=r"(?:\+86|0086)[- ]?1[3-9][\d\s\-\.]{9,13}\b",
+            regex=r"(?:\+86|0086)[- ]?1[3-9][\d\s\-\.]{9,13}",
             score=0.75
         ),
         Pattern(
             name="mobile_in_parentheses",
             # 括号中的手机号：(+86)XXXXX
-            regex=r"\(\+?86\)[- ]?1[3-9][\d\s\-\.]{9,13}\b",
+            regex=r"\(\+?86\)[- ]?1[3-9][\d\s\-\.]{9,13}",
             score=0.75
         ),
         Pattern(
             name="mobile_special_format",
             # 特殊格式：1XX-XXXX-XXXX
-            regex=r"\b1[3-9]\d{2}[\s\-\.]?\d{4}[\s\-\.]?\d{4}\b",
+            regex=r"1[3-9]\d{2}[\s\-\.]?\d{4}[\s\-\.]?\d{4}",
             score=0.75
         )
     ]
@@ -96,6 +96,15 @@ class ChineseMobileNumberRecognizer(PatternRecognizer):
         
         # 检查手机号第二位必须是3-9之间的数字
         if sanitized_value[1] not in '3456789':
+            return False
+        
+        # 检查上下文，避免识别身份证号中的片段
+        # 如果这个数字序列是更长数字序列的一部分（如身份证号），则不认为是手机号
+        import re
+        # 获取匹配文本的前后字符，检查是否是更长数字序列的一部分
+        match = re.search(r'\d{12,}', pattern_text)
+        if match and len(match.group(0)) > 11:
+            print(f"疑似身份证片段，不作为手机号识别: {pattern_text}")
             return False
         
         # 运营商前缀验证 (可选，但可以进一步提高准确性)

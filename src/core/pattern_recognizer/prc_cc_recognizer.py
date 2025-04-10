@@ -21,37 +21,37 @@ class ChineseBankCardRecognizer(PatternRecognizer):
         Pattern(
             name="bank_card_standard",
             # 标准银行卡号: 16-19位连续数字
-            regex=r"\b\d{16,19}\b",
+            regex=r"\d{16,19}",
             score=0.7
         ),
         Pattern(
             name="bank_card_with_separator",
             # 带分隔符的银行卡号: 4位一组，用空格、短横线或点号分隔
-            regex=r"\b\d{4}[\s\-\.]{1}\d{4}[\s\-\.]{1}\d{4}[\s\-\.]{1}\d{4}([\s\-\.]{1}\d{0,3})?\b",
+            regex=r"\d{4}[\s\-\.]{1}\d{4}[\s\-\.]{1}\d{4}[\s\-\.]{1}\d{4}([\s\-\.]{1}\d{0,3})?",
             score=0.75
         ),
         Pattern(
             name="bank_card_standard_visa",
             # VISA卡: 以4开头，后跟15位数字
-            regex=r"\b4\d{15}\b",
+            regex=r"4\d{15}",
             score=0.8
         ),
         Pattern(
             name="bank_card_standard_mastercard",
             # MasterCard: 以5开头，后跟15位数字
-            regex=r"\b5[1-5]\d{14}\b",
+            regex=r"5[1-5]\d{14}",
             score=0.8
         ),
         Pattern(
             name="bank_card_standard_unionpay",
             # 银联卡: 以62开头，后跟14-17位数字
-            regex=r"\b62\d{14,17}\b",
+            regex=r"62\d{14,17}",
             score=0.85
         ),
         Pattern(
             name="bank_card_with_bin",
             # 特定BIN前缀的银行卡
-            regex=r"\b(62|35|37|4|5[1-5]|36|30[0-5])\d{14,17}\b",
+            regex=r"(62|35|37|4|5[1-5]|36|30[0-5])\d{14,17}",
             score=0.75
         )
     ]

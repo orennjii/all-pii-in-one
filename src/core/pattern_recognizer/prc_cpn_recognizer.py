@@ -8,31 +8,31 @@ class ChineseCarPlateNumberRecognizer(PatternRecognizer):
         Pattern(
             name="car_plate_pattern",
             # 普通汽车车牌: 省份简称(1) + 字母(1) + 字母/数字(5)
-            regex=r"\b[京津沪渝冀豫云辽黑湘皖鲁新苏浙赣鄂桂甘晋蒙陕吉闽贵粤青藏川宁琼使领]{1}[A-Z]{1}[A-Z0-9]{5}\b",
+            regex=r"[京津沪渝冀豫云辽黑湘皖鲁新苏浙赣鄂桂甘晋蒙陕吉闽贵粤青藏川宁琼使领]{1}[A-Z]{1}[A-Z0-9]{5}",
             score=0.85
         ),
         Pattern(
             name="new_energy_car_plate",
             # 新能源汽车车牌: 省份简称(1) + 字母(1) + 字母/数字(6)
-            regex=r"\b[京津沪渝冀豫云辽黑湘皖鲁新苏浙赣鄂桂甘晋蒙陕吉闽贵粤青藏川宁琼使领]{1}[A-Z]{1}[A-Z0-9]{6}\b",
+            regex=r"[京津沪渝冀豫云辽黑湘皖鲁新苏浙赣鄂桂甘晋蒙陕吉闽贵粤青藏川宁琼使领]{1}[A-Z]{1}[A-Z0-9]{6}",
             score=0.85
         ),
         Pattern(
             name="special_car_plate",
             # 特殊车牌: 如军队、武警等
-            regex=r"\b[WJQGB][A-Z0-9]{5}[A-Z0-9]?\b",
+            regex=r"[WJQGB][A-Z0-9]{5}[A-Z0-9]?",
             score=0.7
         ),
         Pattern(
             name="embassy_car_plate",
             # 使馆车牌
-            regex=r"\b使[A-Z0-9]{5}[A-Z0-9]?\b",
+            regex=r"使[A-Z0-9]{5}[A-Z0-9]?",
             score=0.85
         ),
         Pattern(
             name="hk_macao_car_plate",
             # 港澳车牌
-            regex=r"\b粤Z[A-Z0-9]{5}\b",
+            regex=r"粤Z[A-Z0-9]{5}",
             score=0.85
         )
     ]

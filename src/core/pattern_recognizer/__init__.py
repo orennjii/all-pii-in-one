@@ -2,6 +2,7 @@ from .prc_cpn_recognizer import ChineseCarPlateNumberRecognizer
 from .prc_pn_recognizer import ChineseMobileNumberRecognizer
 from .prc_idc_recognizer import ChineseIDCardRecognizer
 from .prc_cc_recognizer import ChineseBankCardRecognizer
+from .prc_utl_recognizer import WebsiteURLRecognizer
 from presidio_analyzer import RecognizerRegistry
 
 # 导出所有自定义识别器
@@ -10,6 +11,7 @@ __all__ = [
     "ChineseMobileNumberRecognizer", 
     "ChineseIDCardRecognizer",
     "ChineseBankCardRecognizer",
+    "WebsiteURLRecognizer",
     "get_all_chinese_pattern_recognizers",
     "register_chinese_pattern_recognizers"
 ]
@@ -17,10 +19,11 @@ __all__ = [
 def get_all_chinese_pattern_recognizers():
     """返回所有中文自定义识别器的实例列表"""
     return [
+        ChineseIDCardRecognizer(),
         ChineseCarPlateNumberRecognizer(),
         ChineseMobileNumberRecognizer(),
-        ChineseIDCardRecognizer(),
-        ChineseBankCardRecognizer()
+        ChineseBankCardRecognizer(),
+        WebsiteURLRecognizer()
     ]
 
 def register_chinese_pattern_recognizers(registry):
