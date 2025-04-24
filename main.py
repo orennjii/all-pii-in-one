@@ -70,7 +70,10 @@ def main():
     print(analyzed_results)
     # analyzed_results_en = analyzer.analyze(text=en_text, language="en")
     # print(analyzed_results_en)
-    anonymized_text = anonymizer.anonymize(text=cn_text, analyzer_results=analyzed_results)
+    anonymized_text = anonymizer.anonymize(
+        text=cn_text,
+        analyzer_results=analyzed_results,
+    )
     print(anonymized_text)
 
 if __name__ == "__main__":

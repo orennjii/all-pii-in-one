@@ -40,7 +40,7 @@ def test():
     )
 
     gemini_client = GeminiClient(
-        api_key="AIzaSyBRLhMDRxxpaZRI2cWE_03BCL1379I-FYE",
+        api_key=GEMINI_API_KEY, # 环境变量, 请在运行前设置,或替换为真实的API密钥,
         model_name='models/gemini-2.0-flash-thinking-exp-01-21',
     )
 
