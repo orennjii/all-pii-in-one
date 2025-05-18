@@ -38,7 +38,7 @@ class AudioAnonymizer:
 
     def __init__(
         self,
-        device: str = "cpu",
+        device: torch.device = None,
         reference_voices_dir: Optional[str] = None,
         enable_pii_detection: bool = False,
         pii_detector: Optional[AudioPIIDetector] = None
