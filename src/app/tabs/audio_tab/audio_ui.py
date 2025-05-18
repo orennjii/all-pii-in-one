@@ -12,7 +12,7 @@ import glob
 # External modules
 import gradio as gr
 import torch
-from src.processors.audio import AudioAnonymizer
+from src.processors.audio_processor import AudioAnonymizer
 
 # Local modules
 from src.app.tabs.audio_tab.utils.voice_file_utils import (

@@ -9,7 +9,7 @@ import gradio as gr
 
 # Internal modules
 from src.modules.seed_vc_modules.commons import str2bool
-from src.processors.audio.audio_processor.audio_anonymizer import AudioAnonymizer
+from src.processors.audio_processor.audio_anonymizer import AudioAnonymizer
 from .audio_ui import AudioUI
 from src.commons import (
     get_device,
