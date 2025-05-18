@@ -1,0 +1,43 @@
+{
+    "app_settings": {
+        "title": "PII编辑系统",
+        "theme": "soft",
+        "description": "综合PII编辑系统 - 支持多种文件类型的个人身份信息编辑"
+    },
+    "text_processing": {
+        "supported_file_types": [".txt", ".md", ".json", ".csv"],
+        "max_input_length": 100000,
+        "default_options": {
+            "detect_names": true,
+            "detect_phone_numbers": true,
+            "detect_emails": true,
+            "detect_ids": true,
+            "detect_addresses": true
+        }
+    },
+    "image_processing": {
+        "supported_file_types": [".jpg", ".jpeg", ".png", ".bmp"],
+        "default_options": {
+            "detect_text": true,
+            "detect_faces": true,
+            "detect_ids": true
+        },
+        "ocr_engine": "tesseract"
+    },
+    "audio_processing": {
+        "supported_file_types": [".wav", ".mp3", ".flac", ".ogg"],
+        "default_speakers": 2,
+        "default_anonymize": true,
+        "diarization_model": "pyannote/speaker-diarization-3.1"
+    },
+    "video_processing": {
+        "supported_file_types": [".mp4", ".avi", ".mov", ".mkv"],
+        "default_options": {
+            "detect_faces": true,
+            "detect_ids": false,
+            "detect_subtitles": false
+        },
+        "frame_processing_rate": 1,
+        "tracking_algorithm": "botsort.yaml"
+    }
+}
