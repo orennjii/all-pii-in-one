@@ -72,7 +72,7 @@ class AudioUI:
             tuple: (文件路径, 状态消息, 更新后的选项)
         """
         result = upload_reference_voice(audio, reference_voices_dir, voice_name)
-        return result[0], result[1], [], self.get_reference_voices_dropdown_options()
+        return result[0], result[1], [], get_reference_voices_dropdown_options(reference_voices_dir)
     
     def preview_reference_voice(self, voice_path):
         """返回参考声音的预览"""
@@ -81,8 +81,8 @@ class AudioUI:
     def delete_reference_voice(self, voice_path):
         """删除参考声音"""
         result = delete_reference_voice(voice_path)
-        return result[0], self.get_reference_voices_dropdown_options()
-    
+        return result[0], get_reference_voices_dropdown_options(self.reference_voices_dir)
+
     def update_selected_voices(self, selected_voices, current_selected):
         """更新已选择的参考声音列表"""
         return update_selected_voices(selected_voices, current_selected)
@@ -228,51 +228,24 @@ class AudioUI:
                     # 参考声音选择
                     with gr.Column():
                         # 获取参考声音下拉选项
-                        dropdown_options = self.get_reference_voices_dropdown_options()
+                        dropdown_options = get_reference_voices_dropdown_options(
+                            reference_voices_dir=self.reference_voices_dir
+                        )
                         
-                        # 创建参考声音下拉列表
-                        reference_dropdown = gr.Dropdown(
+                        # 创建参考声音下拉列表 - 直接作为选择的来源
+                        reference_voices = gr.Dropdown(
                             choices=dropdown_options,
-                            label="添加参考声音",
-                            info="从下拉列表中选择要添加的参考声音",
+                            label="选择参考声音",
+                            info="选择要用于声音替换的参考声音",
                             type="value",
                             multiselect=True,
                         )
                         
-                        # 已选择的参考声音列表
-                        reference_voices = gr.Dropdown(
-                            choices=[],
-                            label="已选择的参考声音",
-                            info="已选择的参考声音列表",
-                            multiselect=True,
-                            interactive=True,
-                        )
-                        
-                        # 添加按钮、移除按钮和清空按钮
-                        with gr.Row():
-                            add_voice_button = gr.Button("添加到选择列表", variant="primary")
-                            remove_voice_button = gr.Button("移除选中的参考声音", variant="stop")
-                            clear_voice_button = gr.Button("清空选择", variant="secondary")
-                        
-                        # 清空选择的回调
-                        clear_voice_button.click(
-                            fn=clear_selected_voices,
-                            inputs=[],
-                            outputs=[selected_voices_state, reference_voices]
-                        )
-                        
-                        # 移除选中的参考声音的回调
-                        remove_voice_button.click(
-                            fn=remove_selected_voices,
-                            inputs=[selected_voices_state, reference_voices],
-                            outputs=[selected_voices_state, reference_voices]
-                        )
-                        
-                        # 添加参考声音到选择列表的回调
-                        add_voice_button.click(
-                            fn=add_to_selection,
-                            inputs=[selected_voices_state, reference_dropdown, gr.State(dropdown_options)],
-                            outputs=[selected_voices_state, reference_voices]
+                        # 直接将reference_voices的值绑定到selected_voices_state
+                        reference_voices.change(
+                            fn=lambda x: x,  # 直接传递值
+                            inputs=[reference_voices],
+                            outputs=[selected_voices_state]
                         )
                         
                         # 上传自定义参考声音
@@ -303,7 +276,7 @@ class AudioUI:
                         upload_button.click(
                             fn=upload_and_refresh,
                             inputs=[custom_reference, custom_reference_name],
-                            outputs=[custom_reference, upload_status, custom_reference_name, reference_dropdown]
+                            outputs=[custom_reference, upload_status, custom_reference_name, reference_voices]
                         )
                 
                 with gr.Row():
@@ -406,7 +379,7 @@ class AudioUI:
                         new_upload_button.click(
                             fn=upload_and_refresh_all,
                             inputs=[new_custom_reference, new_custom_name],
-                            outputs=[new_custom_reference, new_upload_status, new_custom_name, reference_dropdown]
+                            outputs=[new_custom_reference, new_upload_status, new_custom_name, reference_voices]
                         )
                         
                         # 初始化展示自定义声音
