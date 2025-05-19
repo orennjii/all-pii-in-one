@@ -15,22 +15,24 @@ import numpy as np
 import yaml
 
 
-def create_temp_dir():
+def create_temp_dir(prefix="temp_"):
     """
     创建临时目录
     
-    返回:
+    Args:
+        prefix (str): 临时目录前缀
+    Returns:
         str: 临时目录路径
     """
-    return tempfile.mkdtemp()
+    return tempfile.mkdtemp(prefix=prefix)
 
 
 def cleanup_temp_dir(temp_dir):
     """
     清理临时目录
-    
-    参数:
-        temp_dir: 临时目录路径
+
+    Args:
+        temp_dir (str): 临时目录路径
     """
     if temp_dir and os.path.exists(temp_dir):
         shutil.rmtree(temp_dir)
@@ -39,11 +41,11 @@ def cleanup_temp_dir(temp_dir):
 def load_yaml_config(config_path):
     """
     加载YAML配置文件
-    
-    参数:
-        config_path: 配置文件路径
-        
-    返回:
+
+    Args:
+        config_path (str): 配置文件路径
+
+    Returns:
         dict: 配置数据
     """
     with open(config_path, 'r', encoding='utf-8') as f:
@@ -54,8 +56,8 @@ def ensure_directory_exists(directory):
     """
     确保目录存在，如果不存在则创建
     
-    参数:
-        directory: 目录路径
+    Args:
+        directory (str): 目录路径
     """
     os.makedirs(directory, exist_ok=True)
 
