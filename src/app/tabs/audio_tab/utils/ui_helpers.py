@@ -8,15 +8,18 @@ UI交互辅助工具
 # System modules
 import os
 
+# External modules
+import gradio as gr
+
 
 def clear_selected_voices():
     """
     清空所选参考声音列表
     
     返回:
-        tuple: (空列表, 空列表) 用于重置状态和UI
+        tuple: (空列表, gr.update()更新) 用于重置状态和UI
     """
-    return [], []
+    return [], gr.update(choices=[])
 
 
 def remove_selected_voices(selected_voices, dropdown_selected):
@@ -28,10 +31,10 @@ def remove_selected_voices(selected_voices, dropdown_selected):
         dropdown_selected: 从下拉框中选择的要移除的声音
     
     返回:
-        tuple: (更新后的声音列表, 更新后的标签列表)
+        tuple: (更新后的声音列表, gr.update更新后的标签列表)
     """
     if not dropdown_selected:
-        return selected_voices, []
+        return selected_voices, gr.update()
     
     # 处理非列表输入
     if not isinstance(dropdown_selected, list):
@@ -52,23 +55,26 @@ def remove_selected_voices(selected_voices, dropdown_selected):
                 voice_name = os.path.basename(voice_path).replace("custom_", "")
             labels.append((voice_name, voice_path))
     
-    return updated_selected, labels
+    return updated_selected, gr.update(choices=labels)
 
 
-def add_to_selection(selected, dropdown_value, dropdown_options):
+def add_to_selection(
+        selected: gr.State,
+        dropdown_value,
+        dropdown_options
+    ):
     """
     添加参考声音到选择列表
-    
     参数:
-        selected: 当前已选择的声音列表
+        selected (gr.State): 当前已选择的声音列表
         dropdown_value: 从下拉框中选择的要添加的声音
         dropdown_options: 下拉框中的所有选项
         
     返回:
-        tuple: (更新后的声音列表, 更新后的标签列表)
+        tuple: (更新后的声音列表, 带有gr.update的标签更新)
     """
     if not dropdown_value:
-        return selected, []
+        return selected, gr.update(choices=[])
     
     # 检查值的类型并进行处理
     if isinstance(dropdown_value, list):
@@ -86,11 +92,11 @@ def add_to_selection(selected, dropdown_value, dropdown_options):
                 if voice_name.startswith("custom_"):
                     voice_name = voice_name.replace("custom_", "")
                 labels.append((voice_name, voice_path))
-        return updated_selected, labels
+        return updated_selected, gr.update(choices=labels)
     
     # 检查是否已经选择了这个声音
     if dropdown_value in selected:
-        return selected, []
+        return selected, gr.update()
     
     # 添加到选择列表
     updated_selected = selected + [dropdown_value]
@@ -121,7 +127,7 @@ def add_to_selection(selected, dropdown_value, dropdown_options):
             
         labels.append((voice_name, voice_path))
     
-    return updated_selected, labels
+    return updated_selected, gr.update(choices=labels)
 
 
 def update_selected_voices(selected_voices, current_selected):
@@ -165,7 +171,7 @@ def add_custom_voice_to_selection(voice_path, selected_voices):
         selected_voices: 当前已选择的声音列表
         
     返回:
-        tuple: (更新后的声音列表, 标签列表)
+        tuple: (更新后的声音列表, gr.update更新标签)
     """
     # 处理列表输入
     if isinstance(voice_path, list):
@@ -182,11 +188,11 @@ def add_custom_voice_to_selection(voice_path, selected_voices):
                 if voice_name.startswith("custom_"):
                     voice_name = voice_name.replace("custom_", "")
                 labels.append((voice_name, path))
-        return updated_selected, labels
+        return updated_selected, gr.update(choices=labels)
     
     # 单个路径情况
     if not voice_path or not isinstance(voice_path, str) or not os.path.exists(voice_path):
-        return selected_voices, []
+        return selected_voices, gr.update()
     
     # 如果已经在列表中，不重复添加
     if voice_path in selected_voices:
@@ -198,7 +204,7 @@ def add_custom_voice_to_selection(voice_path, selected_voices):
                 if os.path.basename(path).startswith("custom_"):
                     voice_name = os.path.basename(path).replace("custom_", "") 
                 labels.append((voice_name, path))
-        return selected_voices, labels
+        return selected_voices, gr.update(choices=labels)
     
     # 添加到选择列表
     updated_selected = selected_voices + [voice_path]
@@ -212,4 +218,4 @@ def add_custom_voice_to_selection(voice_path, selected_voices):
                 voice_name = os.path.basename(path).replace("custom_", "") 
             labels.append((voice_name, path))
         
-    return updated_selected, labels
+    return updated_selected, gr.update(choices=labels)
