@@ -8,7 +8,7 @@ import sys
 
 # Internal modules
 from src.app.tabs.audio_tab.audio_ui import AudioUI
-from src.processors.audio.audio_processor import AudioAnonymizer
+from src.processors.audio_processor import AudioAnonymizer
 
 # 导入处理模块 (后续可以根据需要添加)
 # from src.processors.text import text_processor

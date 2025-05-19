@@ -3,5 +3,5 @@
 """
 from .audio_anonymizer import AudioAnonymizer
 from .speaker_diarization import SpeakerDiarization
-from .voice_conversion import VoiceConverter, initialize_seed_vc
+from .voice_conversion import VoiceConverter
 from .audio_pii_detector import AudioPIIDetector, SpeechToTextPIIDetector

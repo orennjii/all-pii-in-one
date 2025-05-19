@@ -91,17 +91,35 @@ class AudioUI:
         """添加自定义声音到选择列表"""
         return add_custom_voice_to_selection(voice_path, selected_voices)
     
-    def process_audio(self, input_file, selected_voices, token, steps, length, cfg, f0, auto_f0, pitch):
+    def process_audio(
+        self,
+        input_file: str,
+        reference_voices: list,
+        # min_speaker: int,
+        # max_speaker: int,
+        # min_segment_duration: float,
+        # diarization_model_path: str,
+        # use_local_diarization: bool,
+        token: str,
+        # keep_original_segments: bool,
+        # return_pii_info: bool,
+        diffusion_steps: int,
+        length_adjust: float,
+        cfg: float,
+        f0: bool,
+        auto_f0: bool,
+        pitch: list
+    ):
         """
         处理音频函数，带有错误处理功能
-        
-        参数:
-            input_file: 输入音频文件路径
-            selected_voices: 已选择的参考声音列表
-            token: Hugging Face 认证令牌
-            steps: 扩散步数
-            length: 长度调整因子
-            cfg: 推理 CFG 速率
+
+        Args:
+            input_file (str): 输入音频文件路径
+            selected_voices (list): 已选择的参考声音列表
+            token (str): Hugging Face 认证令牌
+            steps (int): 扩散步数
+            length (float): 长度调整因子
+            cfg (float): 推理 CFG 速率
             f0: 是否使用 F0 条件
             auto_f0: 是否自动调整 F0
             pitch: 音高调整（半音）
@@ -110,7 +128,7 @@ class AudioUI:
             tuple: (输出音频路径, 状态消息)
         """
         # 参数检查
-        is_valid, error_msg = validate_audio_params(input_file, selected_voices, token)
+        is_valid, error_msg = validate_audio_params(input_file, reference_voices, token)
         if not is_valid:
             return None, error_msg
         
@@ -121,12 +139,19 @@ class AudioUI:
             # 调用匿名化处理函数，确保它能捕获所有异常
             try:
                 return self.audio_anonymizer.anonymize(
-                    input_file, 
-                    selected_voices, 
-                    token, 
-                    diffusion_steps=steps, 
-                    length_adjust=length, 
-                    inference_cfg_rate=cfg, 
+                    audio_path=input_file,
+                    reference_voices=reference_voices,
+                    # min_speaker=min_speaker,
+                    # max_speaker=max_speaker,
+                    # min_segment_duration=min_segment_duration,
+                    # diarization_model_path=diarization_model_path,
+                    # use_local_diarization=use_local_diarization,
+                    hf_access_token=token,
+                    # keep_original_segments=keep_original_segments,
+                    # return_pii_info=return_pii_info,
+                    diffusion_steps=diffusion_steps,
+                    length_adjust=length_adjust,
+                    inference_cfg_rate=cfg,
                     f0_condition=f0,
                     use_auto_f0_adjust=auto_f0,
                     pitch_shifts=parsed_pitch,
@@ -429,7 +454,7 @@ class AudioUI:
             fn=self.process_audio,
             inputs=[
                 input_audio, 
-                selected_voices_state,  # 使用保存的选择列表状态
+                selected_voices_state,
                 auth_token,
                 diffusion_steps,
                 length_adjust,

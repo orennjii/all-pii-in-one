@@ -38,7 +38,7 @@ def main():
     
     # 初始化用户界面
     audio_ui = AudioUI(
-        device=device,
+        device=torch.device('cpu'),
         reference_voices_dir=reference_voices_dir,
     )
     
