@@ -59,18 +59,22 @@ def ensure_directory_exists(directory):
     """
     os.makedirs(directory, exist_ok=True)
 
-def find_project_root(current_path: Path, marker_filename: str = ".git") -> Path | None:
+def find_project_root(
+        current_path: Path | str,
+        marker_filename: str = ".git"
+    ) -> Path | None:
     """
     向上查找包含特定标记文件的项目根目录。
     """
-    path = current_path.resolve()
-    while path != path.parent: # 当 path 不是文件系统的根目录时
+    path = Path(current_path).resolve()
+
+    while path != path.parent:
         if (path / marker_filename).exists():
             return path
         path = path.parent
-    # 最后检查一下文件系统的根目录（例如，如果 .project_root 就在 / 下）
+
     if (path / marker_filename).exists():
         return path
-    return None # 如果未找到
+    return None
 
 
