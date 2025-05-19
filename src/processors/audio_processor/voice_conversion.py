@@ -57,10 +57,10 @@ class VoiceConverter:
             device: 运行设备，如果为None则自动选择
         """
         # 设置设备
-        self.device = get_device() if device is None else device
+        self.device = device
         
         # 设置运行时参数
-        self._overlap_frame_len = 16
+        self.overlap_frame_len = 16
         
         # 加载模型
         (
@@ -75,13 +75,13 @@ class VoiceConverter:
         # 获取模型参数
         self.sr = self.mel_fn_args["sampling_rate"]
         self.hop_length = self.mel_fn_args["hop_size"]
-        self.overlap_wave_len = self._overlap_frame_len * self.hop_length
+        self.overlap_wave_len = self.overlap_frame_len * self.hop_length
 
     def _load_models(
         self, 
         checkpoint_path: Optional[str] = None, 
         config_path: Optional[str] = None,
-        f0_condition: bool = True,
+        f0_condition: bool = False,
         fp16: bool = True,
         max_context_window: int = 8192
     ) -> Tuple:
@@ -260,11 +260,13 @@ class VoiceConverter:
                     waves_16k[bib].cpu().numpy()
                     for bib in range(len(waves_16k))
                 ]
-                ori_inputs = hubert_feature_extractor(ori_waves_16k_input_list,
-                                                      return_tensors="pt",
-                                                      return_attention_mask=True,
-                                                      padding=True,
-                                                      sampling_rate=16000).to(self.device)
+                ori_inputs = hubert_feature_extractor(
+                    ori_waves_16k_input_list,
+                    return_tensors="pt",
+                    return_attention_mask=True,
+                    padding=True,
+                    sampling_rate=16000
+                ).to(self.device)
                 with torch.no_grad():
                     ori_outputs = hubert_model(
                         ori_inputs.input_values.half(),
@@ -333,214 +335,24 @@ class VoiceConverter:
         """
         对两个音频片段进行交叉淡入淡出混合。
         
-        参数:
+        Args:
             chunk1: 第一个音频片段
             chunk2: 第二个音频片段
             overlap: 重叠样本数
             
-        返回:
+        Returns:
             混合后的音频片段
         """
         fade_out = np.cos(np.linspace(0, np.pi / 2, overlap)) ** 2
         fade_in = np.cos(np.linspace(np.pi / 2, 0, overlap)) ** 2
-        chunk2[:overlap] = chunk2[:overlap] * fade_in + chunk1[-overlap:] * fade_out
+
+        if len(chunk2) < overlap:
+            chunk2[:overlap] = chunk2[:overlap] * fade_in[:len(chunk2)] + (chunk1[-overlap:] * fade_out)[:len(chunk2)]
+        else:
+            chunk2[:overlap] = chunk2[:overlap] * fade_in + chunk1[-overlap:] * fade_out
         return chunk2
 
-    @torch.no_grad()
-    @torch.inference_mode()
-    def convert_voice(
-        self, 
-        source_path: str, 
-        target_path: str,
-        diffusion_steps: int = 10,
-        length_adjust: float = 1.0,
-        inference_cfg_rate: float = 0.7,
-        stream: bool = False,
-        bitrate: str = "320k",
-        max_context_window: int = 8192,
-        fp16: bool = True,
-        auto_f0_adjust: bool = True,
-        pitch_shift: int = 0
-    ) -> Union[np.ndarray, Generator[bytes, None, Tuple[int, np.ndarray]]]:
-        """
-        执行语音转换，将源语音转换为目标语音风格。
-        
-        参数:
-            source_path: 源音频文件路径
-            target_path: 目标参考音频文件路径
-            diffusion_steps: 扩散步数
-            length_adjust: 长度调整
-            inference_cfg_rate: 推理CFG率
-            stream: 是否使用流式处理（流式处理时返回生成器）
-            bitrate: 输出音频的比特率（仅流式处理有效）
-            max_context_window: 最大上下文窗口大小
-            fp16: 是否使用半精度浮点数
-            auto_f0_adjust: 是否自动调整F0
-            pitch_shift: 音高偏移值
-            
-        返回:
-            如果stream=False，返回转换后的音频数组
-            如果stream=True，返回一个生成器，产生(mp3字节，转换进度)
-        """
-        
-        # 加载音频
-        source_audio = librosa.load(source_path, sr=self.sr)[0]
-        ref_audio = librosa.load(target_path, sr=self.sr)[0]
 
-        # 处理音频
-        source_audio = torch.tensor(source_audio).unsqueeze(0).float().to(self.device)
-        ref_audio = torch.tensor(ref_audio[:self.sr * 25]).unsqueeze(0).float().to(self.device)
-
-        # 重采样
-        ref_waves_16k = torchaudio.functional.resample(ref_audio, self.sr, 16000)
-        converted_waves_16k = torchaudio.functional.resample(source_audio, self.sr, 16000)
-        
-        # 如果源音频少于30秒，Whisper可以一次处理
-        if converted_waves_16k.size(-1) <= 16000 * 30:
-            S_alt = self.semantic_fn(converted_waves_16k)
-        else:
-            # 处理长音频，分块处理
-            overlapping_time = 5  # 5秒
-            S_alt_list = []
-            buffer = None
-            traversed_time = 0
-            while traversed_time < converted_waves_16k.size(-1):
-                if buffer is None:  # 第一个块
-                    chunk = converted_waves_16k[:, traversed_time:traversed_time + 16000 * 30]
-                else:
-                    chunk = torch.cat([buffer, converted_waves_16k[:, traversed_time:traversed_time + 16000 * (30 - overlapping_time)]], dim=-1)
-                S_alt = self.semantic_fn(chunk)
-                if traversed_time == 0:
-                    S_alt_list.append(S_alt)
-                else:
-                    S_alt_list.append(S_alt[:, 50 * overlapping_time:])
-                buffer = chunk[:, -16000 * overlapping_time:]
-                traversed_time += 30 * 16000 if traversed_time == 0 else chunk.size(-1) - 16000 * overlapping_time
-            S_alt = torch.cat(S_alt_list, dim=1)
-
-        # 处理参考音频
-        ori_waves_16k = torchaudio.functional.resample(ref_audio, self.sr, 16000)
-        S_ori = self.semantic_fn(ori_waves_16k)
-
-        # 生成梅尔频谱图
-        mel = self.to_mel(source_audio.to(self.device).float())
-        mel2 = self.to_mel(ref_audio.to(self.device).float())
-
-        # 设置目标长度
-        target_lengths = torch.LongTensor([int(mel.size(2) * length_adjust)]).to(mel.device)
-        target2_lengths = torch.LongTensor([mel2.size(2)]).to(mel2.device)
-
-        # 提取参考音频特征
-        feat2 = torchaudio.compliance.kaldi.fbank(ref_waves_16k,
-                                                  num_mel_bins=80,
-                                                  dither=0,
-                                                  sample_frequency=16000)
-        feat2 = feat2 - feat2.mean(dim=0, keepdim=True)
-        style2 = self.campplus_model(feat2.unsqueeze(0))
-
-        # F0设置
-        F0_ori = None
-        F0_alt = None
-        shifted_f0_alt = None
-
-        # 长度调整
-        cond, _, codes, commitment_loss, codebook_loss = self.model.length_regulator(S_alt, ylens=target_lengths, n_quantizers=3, f0=shifted_f0_alt)
-        prompt_condition, _, codes, commitment_loss, codebook_loss = self.model.length_regulator(S_ori, ylens=target2_lengths, n_quantizers=3, f0=F0_ori)
-
-        # 设置处理窗口大小
-        max_source_window = max_context_window - mel2.size(2)
-        
-        # 分块处理源条件并生成输出
-        processed_frames = 0
-        generated_wave_chunks = []
-        
-        # 如果不需要流式处理，收集所有结果
-        if not stream:
-            complete_output = []
-            
-        # 分块生成并流式输出
-        while processed_frames < cond.size(1):
-            chunk_cond = cond[:, processed_frames:processed_frames + max_source_window]
-            is_last_chunk = processed_frames + max_source_window >= cond.size(1)
-            cat_condition = torch.cat([prompt_condition, chunk_cond], dim=1)
-            
-            with torch.autocast(device_type=self.device.type, dtype=torch.float16 if fp16 else torch.float32):
-                # 语音转换
-                vc_target = self.model.cfm.inference(cat_condition,
-                                                     torch.LongTensor([cat_condition.size(1)]).to(mel2.device),
-                                                     mel2, style2, None, diffusion_steps,
-                                                     inference_cfg_rate=inference_cfg_rate)
-                vc_target = vc_target[:, :, mel2.size(-1):]
-                
-            # 生成波形
-            vc_wave = self.vocoder_fn(vc_target.float())[0]
-            if vc_wave.ndim == 1:
-                vc_wave = vc_wave.unsqueeze(0)
-            
-            # 处理不同的块
-            if processed_frames == 0:
-                if is_last_chunk:
-                    # 如果这是唯一一个块
-                    output_wave = vc_wave[0].cpu().numpy()
-                    generated_wave_chunks.append(output_wave)
-                    if stream:
-                        output_wave_int = (output_wave * 32768.0).astype(np.int16)
-                        mp3_bytes = AudioSegment(
-                            output_wave_int.tobytes(), frame_rate=self.sr,
-                            sample_width=output_wave_int.dtype.itemsize, channels=1
-                        ).export(format="mp3", bitrate=bitrate).read()
-                        yield mp3_bytes, (self.sr, np.concatenate(generated_wave_chunks))
-                    else:
-                        complete_output = np.concatenate(generated_wave_chunks)
-                    break
-                else:
-                    # 第一个块，但不是最后一个
-                    output_wave = vc_wave[0, :-self.overlap_wave_len].cpu().numpy()
-                    generated_wave_chunks.append(output_wave)
-                    previous_chunk = vc_wave[0, -self.overlap_wave_len:]
-                    processed_frames += vc_target.size(2) - self._overlap_frame_len
-                    
-                    if stream:
-                        output_wave_int = (output_wave * 32768.0).astype(np.int16)
-                        mp3_bytes = AudioSegment(
-                            output_wave_int.tobytes(), frame_rate=self.sr,
-                            sample_width=output_wave_int.dtype.itemsize, channels=1
-                        ).export(format="mp3", bitrate=bitrate).read()
-                        yield mp3_bytes, None
-            elif is_last_chunk:
-                # 最后一个块，但不是第一个
-                output_wave = self._crossfade(previous_chunk.cpu().numpy(), vc_wave[0].cpu().numpy(), self.overlap_wave_len)
-                generated_wave_chunks.append(output_wave)
-                processed_frames += vc_target.size(2) - self._overlap_frame_len
-                
-                if stream:
-                    output_wave_int = (output_wave * 32768.0).astype(np.int16)
-                    mp3_bytes = AudioSegment(
-                        output_wave_int.tobytes(), frame_rate=self.sr,
-                        sample_width=output_wave_int.dtype.itemsize, channels=1
-                    ).export(format="mp3", bitrate=bitrate).read()
-                    yield mp3_bytes, (self.sr, np.concatenate(generated_wave_chunks))
-                else:
-                    complete_output = np.concatenate(generated_wave_chunks)
-                break
-            else:
-                # 中间块
-                output_wave = self._crossfade(previous_chunk.cpu().numpy(), vc_wave[0, :-self.overlap_wave_len].cpu().numpy(), self.overlap_wave_len)
-                generated_wave_chunks.append(output_wave)
-                previous_chunk = vc_wave[0, -self.overlap_wave_len:]
-                processed_frames += vc_target.size(2) - self._overlap_frame_len
-                
-                if stream:
-                    output_wave_int = (output_wave * 32768.0).astype(np.int16)
-                    mp3_bytes = AudioSegment(
-                        output_wave_int.tobytes(), frame_rate=self.sr,
-                        sample_width=output_wave_int.dtype.itemsize, channels=1
-                    ).export(format="mp3", bitrate=bitrate).read()
-                    yield mp3_bytes, None
-        
-        # 如果不是流式处理，返回完整音频
-        if not stream:
-            return complete_output
 
     def save_converted_audio(
         self, 
@@ -571,158 +383,7 @@ class VoiceConverter:
         
         return output_path
 
-    def set_model(self, checkpoint_path: str, config_path: str) -> None:
-        """
-        设置自定义模型路径。
-        
-        参数:
-            checkpoint_path: 模型检查点路径
-            config_path: 配置文件路径
-        """
-        # 重新加载模型
-        (
-            self.model,
-            self.semantic_fn,
-            self.vocoder_fn,
-            self.campplus_model,
-            self.to_mel,
-            self.mel_fn_args
-        ) = self._load_models(checkpoint_path, config_path)
-        # 更新参数
-        self.sr = self.mel_fn_args["sampling_rate"]
-        self.hop_length = self.mel_fn_args["hop_size"]
-        self.overlap_wave_len = self._overlap_frame_len * self.hop_length
-        
-    def set_model(self, checkpoint_path: str, config_path: str) -> None:
-        """
-        设置自定义模型路径。
-        
-        参数:
-            checkpoint_path: 模型检查点路径
-            config_path: 配置文件路径
-        """
-        # 重新加载模型
-        (
-            self.model,
-            self.semantic_fn,
-            self.vocoder_fn,
-            self.campplus_model,
-            self.to_mel,
-            self.mel_fn_args
-        ) = self._load_models(checkpoint_path, config_path)
-        # 更新参数
-        self.sr = self.mel_fn_args["sampling_rate"]
-        self.hop_length = self.mel_fn_args["hop_size"]
-        self.overlap_wave_len = self._overlap_frame_len * self.hop_length
 
-    # 这里不再使用property装饰器，这些参数都将直接通过方法参数传递
-    def set_overlap_frame_len(self, value: int) -> None:
-        """
-        设置重叠帧长度，这是一个需要类管理的参数
-        
-        参数:
-            value: 重叠帧长度
-        """
-        if value < 1:
-            raise ValueError("重叠帧长度必须大于0")
-        self._overlap_frame_len = value
-        self.overlap_wave_len = self._overlap_frame_len * self.hop_length
-        
-    def reload_model_with_f0_condition(self, f0_condition: bool) -> None:
-        """
-        根据f0条件重新加载模型
-        
-        参数:
-            f0_condition: 是否使用F0条件
-        """
-        # 重新加载模型
-        (
-            self.model,
-            self.semantic_fn,
-            self.vocoder_fn,
-            self.campplus_model,
-            self.to_mel,
-            self.mel_fn_args
-        ) = self._load_models(f0_condition=f0_condition)
-        # 更新参数
-        self.sr = self.mel_fn_args["sampling_rate"]
-        self.hop_length = self.mel_fn_args["hop_size"]
-        self.overlap_wave_len = self._overlap_frame_len * self.hop_length
-    
-    def get_default_parameters(self) -> Dict[str, Any]:
-        """
-        获取默认参数设置。
-        
-        返回:
-            包含默认参数的字典
-        """
-        return {
-            "diffusion_steps": 10,
-            "length_adjust": 1.0,
-            "inference_cfg_rate": 0.7,
-            "f0_condition": True,
-            "auto_f0_adjust": True,
-            "default_pitch_shift": 0,
-            "device": self.device,
-            "fp16": True,
-            "max_context_window": 8192,
-            "overlap_frame_len": self._overlap_frame_len,
-            "bitrate": "320k",
-            "sample_rate": self.sr,
-            "hop_length": self.hop_length,
-        }
-
-    def load_parameters_from_config(self, config_path: str) -> Dict[str, Any]:
-        """
-        从配置文件加载参数并返回参数字典。
-        
-        参数:
-            config_path: 配置文件路径
-            
-        返回:
-            Dict[str, Any]: 从配置文件加载的参数字典
-        """
-        with open(config_path, 'r') as f:
-            config = yaml.safe_load(f)
-        
-        params = self.get_default_parameters()
-        voice_conversion_config = config.get('voice_conversion', {})
-        
-        # 从配置中更新参数
-        if 'diffusion_steps' in voice_conversion_config:
-            params['diffusion_steps'] = voice_conversion_config['diffusion_steps']
-            
-        if 'length_adjust' in voice_conversion_config:
-            params['length_adjust'] = voice_conversion_config['length_adjust']
-            
-        if 'inference_cfg_rate' in voice_conversion_config:
-            params['inference_cfg_rate'] = voice_conversion_config['inference_cfg_rate']
-            
-        if 'auto_f0_adjust' in voice_conversion_config:
-            params['auto_f0_adjust'] = voice_conversion_config['auto_f0_adjust']
-            
-        if 'default_pitch_shift' in voice_conversion_config:
-            params['default_pitch_shift'] = voice_conversion_config['default_pitch_shift']
-            
-        if 'fp16' in voice_conversion_config:
-            params['fp16'] = voice_conversion_config['fp16']
-            
-        if 'max_context_window' in voice_conversion_config:
-            params['max_context_window'] = voice_conversion_config['max_context_window']
-            
-        if 'overlap_frame_len' in voice_conversion_config:
-            self.set_overlap_frame_len(voice_conversion_config['overlap_frame_len'])
-            params['overlap_frame_len'] = self._overlap_frame_len
-            
-        if 'bitrate' in voice_conversion_config:
-            params['bitrate'] = voice_conversion_config['bitrate']
-            
-        if 'model' in voice_conversion_config:
-            model_config = voice_conversion_config['model']
-            if 'checkpoint_path' in model_config and 'config_path' in model_config:
-                self.set_model(model_config['checkpoint_path'], model_config['config_path'])
-                
-        return params
 
     def batch_convert(
         self, 
@@ -734,6 +395,7 @@ class VoiceConverter:
         inference_cfg_rate: float = 0.7,
         bitrate: str = "320k", 
         max_context_window: int = 8192,
+        fp16: bool = True,
         **kwargs
     ) -> List[str]:
         """
@@ -772,9 +434,9 @@ class VoiceConverter:
                     diffusion_steps=diffusion_steps,
                     length_adjust=length_adjust,
                     inference_cfg_rate=inference_cfg_rate,
-                    stream=False,
                     bitrate=bitrate,
                     max_context_window=max_context_window,
+                    fp16=fp16,
                     **kwargs
                 )
                 
@@ -792,3 +454,178 @@ class VoiceConverter:
             
         print(f"批量转换完成，成功转换 {len(converted_paths)}/{len(source_paths)} 个文件")
         return converted_paths
+    
+
+
+    @torch.no_grad()
+    def convert_voice(
+        self,
+        source_path: str,
+        target_path: str,
+        diffusion_steps: int = 10,
+        length_adjust: float = 1.0,
+        inference_cfg_rate: float = 0.7,
+        bitrate: str = "320k",
+        max_context_window: int = 8192,
+        fp16: bool = True,
+        **kwargs
+    ) -> np.ndarray:
+        """
+        执行语音转换，将源语音转换为目标语音风格。
+        
+        参数:
+            source_path: 源音频文件路径
+            target_path: 目标参考音频文件路径
+            diffusion_steps: 扩散步数，越大质量越高但速度越慢
+            length_adjust: 长度调整因子，控制输出语速
+            inference_cfg_rate: 推理CFG率，控制音色与内容的平衡
+            stream: 是否使用流式处理（不使用）
+            bitrate: MP3输出的比特率
+            max_context_window: 最大上下文窗口大小
+            **kwargs: 额外参数
+            
+        返回:
+            np.ndarray: 转换后的音频数据
+        """
+        
+        # 使用类中的模型和方法
+        inference_module = self.model
+        mel_fn = self.to_mel
+
+        # 加载音频
+        source_audio = librosa.load(source_path, sr=self.sr)[0]
+        ref_audio = librosa.load(target_path, sr=self.sr)[0]
+
+        # 处理音频
+        source_audio = torch.tensor(source_audio).unsqueeze(0).float().to(self.device)
+        ref_audio = torch.tensor(ref_audio[:self.sr * 25]).unsqueeze(0).float().to(self.device)
+
+        # 重采样
+        ref_waves_16k = torchaudio.functional.resample(ref_audio, self.sr, 16000)
+        converted_waves_16k = torchaudio.functional.resample(source_audio, self.sr, 16000)
+        
+        # 处理源音频, 如果源音频少于30秒，whisper语义模型可以一次处理
+        if converted_waves_16k.size(-1) <= 16000 * 30:
+            S_alt = self.semantic_fn(converted_waves_16k)
+        else:
+            # 处理长音频，分块处理
+            overlapping_time = 5  # 5秒
+            S_alt_list = []
+            buffer = None
+            traversed_time = 0
+            while traversed_time < converted_waves_16k.size(-1):
+                if buffer is None:  # 第一个块
+                    chunk = converted_waves_16k[:, traversed_time:traversed_time + 16000 * 30]
+                else:
+                    chunk = torch.cat([buffer, converted_waves_16k[:, traversed_time:traversed_time + 16000 * (30 - overlapping_time)]], dim=-1)
+                S_alt = self.semantic_fn(chunk)
+                if traversed_time == 0:
+                    S_alt_list.append(S_alt)
+                else:
+                    S_alt_list.append(S_alt[:, 50 * overlapping_time:])
+                buffer = chunk[:, -16000 * overlapping_time:]
+                traversed_time += 30 * 16000 if traversed_time == 0 else chunk.size(-1) - 16000 * overlapping_time
+            S_alt = torch.cat(S_alt_list, dim=1)
+
+        # 处理参考音频
+        ori_waves_16k = torchaudio.functional.resample(ref_audio, self.sr, 16000)
+        S_ori = self.semantic_fn(ori_waves_16k)
+
+        # 生成梅尔频谱图
+        mel = mel_fn(source_audio.to(self.device).float())
+        mel2 = mel_fn(ref_audio.to(self.device).float())
+
+        # 设置目标长度
+        target_lengths = torch.LongTensor([int(mel.size(2) * length_adjust)]).to(mel.device)
+        target2_lengths = torch.LongTensor([mel2.size(2)]).to(mel2.device)
+
+        # 提取参考音频特征
+        feat2 = torchaudio.compliance.kaldi.fbank(
+            ref_waves_16k,
+            num_mel_bins=80,
+            dither=0,
+            sample_frequency=16000
+        )
+        feat2 = feat2 - feat2.mean(dim=0, keepdim=True)
+        style2 = self.campplus_model(feat2.unsqueeze(0))
+
+        # F0设置
+        F0_ori = None
+        F0_alt = None
+        shifted_f0_alt = None
+
+        # 长度调整
+        cond, _, codes, commitment_loss, codebook_loss = inference_module.length_regulator(
+            S_alt, 
+            ylens=target_lengths, 
+            n_quantizers=3, 
+            f0=shifted_f0_alt
+        )
+        prompt_condition, _, codes, commitment_loss, codebook_loss = inference_module.length_regulator(
+            S_ori,
+            ylens=target2_lengths, 
+            n_quantizers=3, 
+            f0=F0_ori
+        )
+
+        # 生成整个音频
+        max_source_window = max_context_window - mel2.size(2)
+        
+        # 初始化
+        processed_frames = 0
+        generated_wave_chunks = []
+        
+        # 分块处理并生成完整音频
+        while processed_frames < cond.size(1):
+            chunk_cond = cond[:, processed_frames:processed_frames + max_source_window]
+            is_last_chunk = processed_frames + max_source_window >= cond.size(1)
+            cat_condition = torch.cat([prompt_condition, chunk_cond], dim=1)
+            print(f"当前处理的块大小: {cat_condition.size(1)}")
+            
+            # 使用适当的精度进行推理
+            with torch.autocast(
+                device_type=self.device.type,
+                dtype=torch.float16 if fp16 else torch.float32
+            ):
+                # 语音转换
+                vc_target = inference_module.cfm.inference(
+                    cat_condition,
+                    torch.LongTensor([cat_condition.size(1)]).to(mel2.device),
+                    mel2, style2, None, diffusion_steps,
+                    inference_cfg_rate=inference_cfg_rate
+                )
+                vc_target = vc_target[:, :, mel2.size(-1):]
+                
+            # 生成波形
+            vc_wave = self.vocoder_fn(vc_target.float())[0]
+            if vc_wave.ndim == 1:
+                vc_wave = vc_wave.unsqueeze(0)
+                
+            # 处理音频块并添加到结果中
+            if processed_frames == 0:
+                if is_last_chunk:
+                    # 如果只有一个块
+                    output_wave = vc_wave[0].cpu().numpy()
+                    generated_wave_chunks.append(output_wave)
+                    break
+                else:
+                    # 第一个块，保留结尾用于交叉淡入淡出
+                    output_wave = vc_wave[0, :-self.overlap_wave_len].cpu().numpy()
+                    generated_wave_chunks.append(output_wave)
+                    previous_chunk = vc_wave[0, -self.overlap_wave_len:]
+                    processed_frames += vc_target.size(2) - self.overlap_frame_len
+            elif is_last_chunk:
+                # 最后一个块，与前一个块进行交叉淡入淡出
+                output_wave = self._crossfade(previous_chunk.cpu().numpy(), vc_wave[0].cpu().numpy(), self.overlap_wave_len)
+                generated_wave_chunks.append(output_wave)
+                processed_frames += vc_target.size(2) - self.overlap_frame_len
+                break
+            else:
+                # 中间块，与前一个块进行交叉淡入淡出
+                output_wave = self._crossfade(previous_chunk.cpu().numpy(), vc_wave[0, :-self.overlap_wave_len].cpu().numpy(), self.overlap_wave_len)
+                generated_wave_chunks.append(output_wave)
+                previous_chunk = vc_wave[0, -self.overlap_wave_len:]
+                processed_frames += vc_target.size(2) - self.overlap_frame_len
+
+        # 连接所有处理后的块并返回
+        return np.concatenate(generated_wave_chunks)

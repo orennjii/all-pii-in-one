@@ -12,9 +12,10 @@ import numpy as np
 import librosa
 import soundfile as sf
 from typing import Dict, List, Tuple, Optional, Union, Any
+
+from src.configs import AUDIO_CONFIG
 from src.commons.device_config import get_device
 from src.commons.utils import create_temp_dir, cleanup_temp_dir, ensure_directory_exists
-
 from .speaker_diarization import SpeakerDiarization
 from .voice_conversion import VoiceConverter
 from .audio_pii_detector import AudioPIIDetector, SpeechToTextPIIDetector
@@ -39,7 +40,6 @@ class AudioAnonymizer:
     def __init__(
         self,
         device: torch.device = None,
-        reference_voices_dir: Optional[str] = None,
         enable_pii_detection: bool = False,
         pii_detector: Optional[AudioPIIDetector] = None
     ):
@@ -48,19 +48,11 @@ class AudioAnonymizer:
         
         Args:
             device: 运行设备, "cpu"或"cuda"
-            hf_access_token: HuggingFace访问令牌, 用于下载模型
-            diarization_model_path: 说话人分割模型路径
-            voice_models_dir: 语音转换模型目录
-            reference_voices_dir: 参考声音目录
             enable_pii_detection: 是否启用PII检测
             pii_detector: 自定义PII检测器
         """
         self.device = device
         self.enable_pii_detection = enable_pii_detection
-        self.reference_voices_dir = reference_voices_dir or os.path.join(
-            os.path.dirname(os.path.abspath(__file__)), 
-            "../data/reference_voices"
-        )
         
         # 初始化说话人分割器
         self.diarizer = SpeakerDiarization(
@@ -69,7 +61,7 @@ class AudioAnonymizer:
         
         # 初始化语音转换器
         self.voice_converter = VoiceConverter(
-            device=device,
+            device=device
         )
         
         # 初始化PII检测器
@@ -77,84 +69,36 @@ class AudioAnonymizer:
             self.pii_detector = pii_detector or SpeechToTextPIIDetector()
         else:
             self.pii_detector = None
-        
-        # 获取参考声音列表
-        self.reference_voices = self._get_reference_voices()
-    
-    def _get_reference_voices(self) -> Dict[str, str]:
-        """
-        获取参考声音列表
-        
-        Returns:
-            Dict[str, str]: 参考声音名称到文件路径的映射
-        """
-        if not os.path.exists(self.reference_voices_dir):
-            os.makedirs(self.reference_voices_dir, exist_ok=True)
-            return {}
-        
-        reference_voices = {}
-        for file in os.listdir(self.reference_voices_dir):
-            if file.lower().endswith('.wav'):
-                name = os.path.splitext(file)[0]
-                path = os.path.join(self.reference_voices_dir, file)
-                reference_voices[name] = path
-        
-        return reference_voices
-    
-    def add_reference_voice(self, voice_path: str, name: Optional[str] = None) -> str:
-        """
-        添加参考声音
-        
-        Args:
-            voice_path: 参考声音文件路径
-            name: 参考声音名称, 如果为None则使用文件名
             
-        Returns:
-            str: 参考声音在系统中的ID
-        """
-        if not os.path.exists(voice_path):
-            raise FileNotFoundError(f"参考声音文件不存在: {voice_path}")
-        
-        # 如果未提供名称, 使用文件名
-        if name is None:
-            name = os.path.splitext(os.path.basename(voice_path))[0]
-        
-        # 确保名称唯一
-        if name in self.reference_voices:
-            name = f"{name}_{str(uuid.uuid4())[:8]}"
-        
-        # 复制到参考声音目录
-        target_path = os.path.join(self.reference_voices_dir, f"{name}.wav")
-        shutil.copy(voice_path, target_path)
-        
-        # 更新参考声音列表
-        self.reference_voices[name] = target_path
-        
-        return name
-    
-    def anonymize(self, 
-                 audio_path: str, 
-                 output_path: Optional[str] = None,
-                 reference_voice: Optional[str] = None,
-                 min_speakers: int = 1,
-                 max_speakers: int = 5,
-                 min_segment_duration: float = 1.0,
-                 keep_original_segments: bool = False,
-                 return_pii_info: bool = False,
-                 diffusion_steps: Optional[int] = None,
-                 length_adjust: Optional[float] = None,
-                 speaker_mapping: Optional[Dict[str, str]] = None,
-                 **kwargs) -> Union[str, Tuple[str, Dict]]:
+    def anonymize(
+        self, 
+        audio_path: str, 
+        reference_voices: List[str],
+        min_speakers: int = 1,
+        max_speakers: int = 5,
+        min_segment_duration: float = 1.0,
+        diarization_model_path: str = "pyannote/speaker-diarization-3.1",
+        use_local_diarization: bool = False,
+        hf_access_token: Optional[str] = None,
+        keep_original_segments: bool = False,
+        return_pii_info: bool = False,
+        diffusion_steps: Optional[int] = AUDIO_CONFIG.voice_conversion.diffusion_steps,
+        length_adjust: Optional[float] = AUDIO_CONFIG.voice_conversion.length_adjust,
+        speaker_mapping: Optional[Dict[str, str]] = None,
+        **kwargs
+    ) -> Union[str, Tuple[str, Dict]]:
         """
         匿名化音频
         
         Args:
             audio_path: 输入音频文件路径
-            output_path: 输出音频文件路径, 如果为None则自动生成
-            reference_voice: 参考声音名称或文件路径, 如果为None则从可用的参考声音中随机选择
+            reference_voices: 参考声音文件路径列表
             min_speakers: 最少说话人数
             max_speakers: 最多说话人数
             min_segment_duration: 最小片段时长（秒）
+            diarization_model_path: 说话人分割模型路径
+            use_local_diarization: 是否使用本地模型进行说话人分割
+            hf_access_token: HuggingFace访问令牌, 用于下载模型
             keep_original_segments: 是否保留原始音频片段
             return_pii_info: 是否返回PII检测信息
             diffusion_steps: 扩散步数, 值越大质量越高但处理时间越长
@@ -169,6 +113,10 @@ class AudioAnonymizer:
         """
         # 创建临时目录
         temp_dir = create_temp_dir(prefix="audio_anonymizer_")
+        output_path = os.path.join(
+            os.path.dirname(audio_path),
+            f"anonymized_{os.path.basename(audio_path)}"
+        )
         
         try:
             print(f"正在处理音频: {audio_path}")
@@ -181,7 +129,10 @@ class AudioAnonymizer:
                 min_speakers=min_speakers,
                 max_speakers=max_speakers,
                 min_segment_duration=min_segment_duration,
-                output_dir=segments_dir
+                output_dir=segments_dir,
+                model_name_or_path=diarization_model_path,
+                use_local_model=use_local_diarization,
+                access_token=hf_access_token,
             )
             
             segments = diarization_results['segments']
@@ -194,38 +145,35 @@ class AudioAnonymizer:
             # 如果没有检测到说话人，直接返回原始音频
             if not segments:
                 print("未检测到有效的说话人片段, 返回原始音频")
-                if output_path is None:
-                    output_dir = os.path.dirname(audio_path)
-                    output_name = f"anonymized_{os.path.basename(audio_path)}"
-                    output_path = os.path.join(output_dir, output_name)
-                shutil.copy(audio_path, output_path)
-                return output_path
+                return audio_path
             
             # 步骤2: 准备参考声音
             print(f"准备参考声音...")
-            # 如果未指定speaker_mapping，则创建一个
+            
+            # 检查参考声音数量是否足够
+            if len(reference_voices) < num_speakers:
+                raise ValueError(f"参考声音数量不足，检测到 {num_speakers} 个说话人，但仅提供了 {len(reference_voices)} 个参考声音")
+            
+            # 验证所有参考声音文件是否存在
+            for voice_path in reference_voices:
+                if not os.path.exists(voice_path):
+                    raise FileNotFoundError(f"参考声音文件不存在: {voice_path}")
+            
+            # 如果未指定speaker_mapping，则创建一个新的映射
             if speaker_mapping is None:
                 speaker_mapping = {}
             
-            # 为每个说话人分配参考声音
+            # 为每个说话人分配一个唯一的参考声音
+            import random
+            
+            # 创建参考声音的副本，以便我们可以随机选择而不重复
+            available_voices = reference_voices.copy()
+            
             for speaker_id in speaker_audio_paths.keys():
                 if speaker_id not in speaker_mapping:
-                    # 如果没有为该说话人指定参考声音
-                    if reference_voice is None:
-                        # 如果没有指定默认参考声音，随机选择一个
-                        if not self.reference_voices:
-                            raise ValueError("没有可用的参考声音, 请先添加参考声音")
-                        selected_voice = list(self.reference_voices.values())[
-                            hash(speaker_id) % len(self.reference_voices)
-                        ]
-                    elif reference_voice in self.reference_voices:
-                        # 使用指定的参考声音名称
-                        selected_voice = self.reference_voices[reference_voice]
-                    elif os.path.exists(reference_voice):
-                        # 使用指定的参考声音文件路径
-                        selected_voice = reference_voice
-                    else:
-                        raise FileNotFoundError(f"参考声音文件不存在: {reference_voice}")
+                    # 为此说话人随机选择一个尚未使用的参考声音
+                    selected_voice = random.choice(available_voices)
+                    available_voices.remove(selected_voice)
                     
                     # 添加到映射
                     speaker_mapping[speaker_id] = selected_voice
