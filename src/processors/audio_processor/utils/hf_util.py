@@ -11,7 +11,7 @@ def load_custom_model_from_hf(
     sub_dir: str = None,
 ):
     current_dir = Path(__file__).resolve()
-    checkpoint_dir = find_project_root() / "checkpoints"
+    checkpoint_dir = find_project_root(__file__) / "checkpoints"
 
     if sub_dir is not None:
         checkpoint_dir = checkpoint_dir / sub_dir
