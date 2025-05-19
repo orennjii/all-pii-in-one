@@ -7,9 +7,11 @@
 """
 
 import os
+from pathlib import Path
 from typing import List, Dict, Any, Optional, ClassVar
 from pydantic import Field
 
+from src.commons import find_project_root
 from .base_config import BaseConfig
 
 
@@ -88,7 +90,7 @@ class AudioConfig(BaseConfig):
     """音频处理的总体配置"""
     
     DEFAULT_CONFIG_PATH: ClassVar[str] = os.path.join(
-        os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+        find_project_root(Path(__file__)),
         "config", "audio_default_config.yaml"
     )
     
