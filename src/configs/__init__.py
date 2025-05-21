@@ -3,21 +3,52 @@
 提供各种服务的配置类和默认配置
 """
 
-from .base_config import BaseConfig
+from .base_config import ConfigType, BaseConfig
 from .audio_config import (
     AudioConfig,
     AudioDiarizationConfig,
     AudioVoiceConversionConfig,
     AudioSupportedFormatsConfig,
-    # 导出全局单例实例
-    AUDIO_CONFIG,
 )
 
+# 导入新的配置结构
+from .general import GeneralConfig
+from .device import DeviceConfig
+from .processors.text_processor import TextProcessorConfig
+from .processors.text_processor.recognizers import (
+    RecognizersConfig,
+    LLMRecognizerConfig,
+    PatternRecognizerConfig,
+)
+from .processors.text_processor.recognizers.llm import (
+    LLMClientConfig,
+    LLMPromptsConfig,
+    LLMParsersConfig,
+)
+from .processors.text_processor.recognizers.pattern import (
+    PatternRecognizerConfig,
+)
+
+# 创建主应用配置类
+from pydantic import Field
+class AppConfig(BaseConfig):
+    """应用程序主配置"""
+    general: GeneralConfig = Field(default_factory=GeneralConfig, description="通用配置")
+    device: DeviceConfig = Field(default_factory=DeviceConfig, description="设备配置")
+    text_processor: TextProcessorConfig = Field(default_factory=TextProcessorConfig, description="文本处理器配置")
+    # 可以在这里添加其他处理器的配置，如图像处理器等
+
 __all__ = [
+    "ConfigType",
     "BaseConfig",
     "AudioConfig",
     "AudioDiarizationConfig",
     "AudioVoiceConversionConfig",
     "AudioSupportedFormatsConfig",
-    "AUDIO_CONFIG",
+    
+    # 新的配置结构
+    "GeneralConfig",
+    "DeviceConfig",
+    "TextProcessorConfig",
+    "AppConfig"
 ]

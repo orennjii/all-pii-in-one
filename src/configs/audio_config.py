@@ -117,7 +117,3 @@ class AudioConfig(BaseConfig):
         ),
         description="参考声音目录路径"
     )
-
-
-# 创建全局共享的不可变单例实例
-AUDIO_CONFIG = AudioConfig.get_instance()
