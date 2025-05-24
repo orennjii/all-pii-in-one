@@ -1,0 +1,34 @@
+{
+  "pii_detection": {
+    "description": "标准的PII检测提示词，用于识别文本中的个人隐私信息",
+    "template": "你是一个精确的个人隐私信息(PII)识别专家。请识别下面文本中的所有个人隐私信息(PII)。\n\n需要识别的实体类型包括：{{ entities }}\n\n文本内容：\n{{ text }}\n\n请严格按照以下JSON格式返回结果，只包含识别到的实体：\n[\n  {\n    \"entity_type\": \"实体类型\",\n    \"value\": \"实体值\",\n    \"start\": 开始位置(数字),\n    \"end\": 结束位置(数字),\n    \"confidence\": 置信度(0-1之间的浮点数)\n  },\n  ...\n]\n\n如果没有识别到任何实体，请返回空数组 []。请确保返回的是有效的JSON格式，不要包含注释或额外说明。"
+  },
+  "pii_detection_zh": {
+    "description": "中文PII检测优化提示词",
+    "template": "你是一个精确的个人隐私信息(PII)识别专家。请识别下面中文文本中的所有个人隐私信息(PII)。\n\n需要识别的实体类型包括：{{ entities }}\n\n文本内容：\n{{ text }}\n\n以下是一些中文特有的PII类型示例：\n- 中国身份证号码：18位数字，或者15位数字(旧版)\n- 中国手机号：通常以1开头的11位数字\n- 中国车牌号：如"京A12345"\n- 中国银行卡号：通常为16-19位数字\n\n请严格按照以下JSON格式返回结果，只包含识别到的实体：\n[\n  {\n    \"entity_type\": \"实体类型(如PERSON、ID_CARD、PHONE_NUMBER等)\",\n    \"value\": \"实体值\",\n    \"start\": 开始位置(数字),\n    \"end\": 结束位置(数字),\n    \"confidence\": 置信度(0-1之间的浮点数)\n  },\n  ...\n]\n\n如果没有识别到任何实体，请返回空数组 []。请确保返回的是有效的JSON格式。"
+  },
+  "pii_detection_en": {
+    "description": "英文PII检测优化提示词",
+    "template": "You are an expert in identifying Personal Identifiable Information (PII) in text. Please identify all PII in the following English text.\n\nEntity types to identify include: {{ entities }}\n\nText content:\n{{ text }}\n\nPlease return the results in the following JSON format, including only the entities you've identified:\n[\n  {\n    \"entity_type\": \"ENTITY_TYPE\",\n    \"value\": \"entity value\",\n    \"start\": start_position_as_integer,\n    \"end\": end_position_as_integer,\n    \"confidence\": confidence_score_between_0_and_1\n  },\n  ...\n]\n\nIf no entities are identified, please return an empty array []. Ensure the response is valid JSON without any comments or additional explanation."
+  },
+  "pii_extraction_structured": {
+    "description": "结构化PII提取提示词，用于从结构化文本中提取个人隐私信息",
+    "template": "你是一个精确的数据处理专家。请从以下可能包含表格、列表或结构化内容的文本中，提取所有个人隐私信息(PII)。\n\n需要提取的实体类型包括：{{ entities }}\n\n文本内容：\n{{ text }}\n\n请注意文本可能包含表格、列表或其他结构化内容。在解析时，请确保正确理解内容的结构和上下文关系。\n\n请严格按照以下JSON格式返回结果：\n[\n  {\n    \"entity_type\": \"实体类型\",\n    \"value\": \"实体值\",\n    \"start\": 开始位置(数字),\n    \"end\": 结束位置(数字),\n    \"confidence\": 置信度(0-1之间的浮点数)\n  },\n  ...\n]\n\n如果没有识别到任何实体，请返回空数组 []。请确保返回的是有效的JSON格式，不要包含注释或额外说明。"
+  },
+  "pii_detection_with_context": {
+    "description": "带上下文的PII检测提示词，用于更准确地识别文本中的个人隐私信息",
+    "template": "你是一个精确的个人隐私信息(PII)识别专家。请识别下面文本中的所有个人隐私信息(PII)，特别注意上下文信息的分析，避免错误识别。\n\n需要识别的实体类型包括：{{ entities }}\n\n文本内容：\n{{ text }}\n\n请分析文本的上下文，区分以下情况：\n1. 真实的个人信息 vs. 示例/模板数据\n2. 指代特定个人的信息 vs. 通用描述\n3. 考虑文本的领域和风格（如小说、新闻、表单等）\n\n请严格按照以下JSON格式返回结果，只包含识别到的真实实体：\n[\n  {\n    \"entity_type\": \"实体类型\",\n    \"value\": \"实体值\",\n    \"start\": 开始位置(数字),\n    \"end\": 结束位置(数字),\n    \"confidence\": 置信度(0-1之间的浮点数，基于上下文确定性)\n  },\n  ...\n]\n\n如果没有识别到任何实体，请返回空数组 []。请确保返回的是有效的JSON格式。"
+  },
+  "document_pii_detection": {
+    "description": "文档PII检测提示词，适用于处理各种文档格式",
+    "template": "你是一个精确的个人隐私信息(PII)识别专家。请识别下面文档中的所有个人隐私信息(PII)。文档可能包含多种格式内容，如段落文本、表格数据、列表、表单等。\n\n需要识别的实体类型包括：{{ entities }}\n\n文档内容：\n{{ text }}\n\n请特别注意：\n1. 表格中的个人信息\n2. 表单字段及其值\n3. 文档页眉页脚中的信息\n4. 可能跨越多行的信息\n\n请严格按照以下JSON格式返回结果：\n[\n  {\n    \"entity_type\": \"实体类型\",\n    \"value\": \"实体值\",\n    \"start\": 开始位置(数字),\n    \"end\": 结束位置(数字),\n    \"confidence\": 置信度(0-1之间的浮点数)\n  },\n  ...\n]\n\n如果没有识别到任何实体，请返回空数组 []。请确保返回的是有效的JSON格式，不要包含注释或额外说明。"
+  },
+  "complex_pii_detection": {
+    "description": "复杂PII检测提示词，适用于处理更复杂的隐私信息和格式",
+    "template": "你是一个精确的个人隐私信息(PII)识别专家。请识别下面文本中的所有个人隐私信息(PII)，包括明显的和需要推断的隐私信息。\n\n需要识别的实体类型包括：{{ entities }}\n\n文本内容：\n{{ text }}\n\n请特别注意以下复杂情况：\n1. 间接引用的个人信息（如"我的生日是建军节那天"）\n2. 分散在不同位置但相关联的信息片段\n3. 使用别称或缩写表示的信息\n4. 隐晦表达的个人信息\n\n请严格按照以下JSON格式返回结果：\n[\n  {\n    \"entity_type\": \"实体类型\",\n    \"value\": \"实体值\",\n    \"start\": 开始位置(数字),\n    \"end\": 结束位置(数字),\n    \"confidence\": 置信度(0-1之间的浮点数),\n    \"is_inferred\": 是否为推断信息(布尔值),\n    \"notes\": \"可选的推断说明\"\n  },\n  ...\n]\n\n如果没有识别到任何实体，请返回空数组 []。请确保返回的是有效的JSON格式。"
+  },
+  "system_prompt": {
+    "description": "用于 Gemini 的系统级提示词",
+    "template": "你是一个专业的隐私信息识别助手，专门用于检测文本中的个人身份信息(PII)。你的任务是准确识别所有类型的PII，并返回它们在文本中的具体位置。请确保以结构化的JSON格式返回结果，不要添加任何额外解释，保持输出的一致性和可解析性。"
+  }
+}

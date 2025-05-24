@@ -1,0 +1,14 @@
+{
+  "pii_detection": {
+    "description": "标准的PII检测提示词，用于识别文本中的个人隐私信息",
+    "template": "请识别下面文本中可能的个人身份信息 (PII)，识别的实体类型包括: {{ entities }}\n\n文本内容：\n{{ text }}\n\n请以 JSON 格式返回识别结果，格式如下:\n[\n  {\n    \"entity_type\": \"实体类型\",\n    \"value\": \"实体值\",\n    \"start\": 开始位置(数字),\n    \"end\": 结束位置(数字),\n    \"confidence\": 置信度(0-1之间的浮点数)\n  },\n  ...\n]\n\n只返回 JSON，不要有其他内容。"
+  },
+  "pii_extraction": {
+    "description": "从文本中提取个人隐私信息",
+    "template": "请从以下文本中提取所有的个人隐私信息:\n\n{{ text }}\n\n请列出所有个人隐私信息，包括但不限于:\n- 姓名\n- 身份证号\n- 电话号码\n- 邮箱地址\n- 银行卡号\n- 地址\n\n按照以下JSON格式返回结果:\n[\n  {\n    \"type\": \"信息类型\",\n    \"value\": \"具体值\",\n    \"position\": [开始位置, 结束位置]\n  },\n  ...\n]\n"
+  },
+  "system_prompt": {
+    "description": "系统级提示词",
+    "template": "你是一个专业的隐私信息识别助手，专门用于检测文本中的个人身份信息(PII)。你的任务是准确识别所有类型的PII，并返回它们在文本中的具体位置。"
+  }
+}
