@@ -14,11 +14,11 @@ from presidio_analyzer import EntityRecognizer, RecognizerResult
 from presidio_analyzer.nlp_engine import NlpArtifacts
 
 from src.commons.loggers import get_module_logger
-from src.configs.processors.text_processor.recognizers import LLMRecognizerConfig
+from src.configs.processors.text_processor.recognizers.llm import LLMRecognizerConfig
 from src.processors.text_processor.recognizers.llm.clients.base_client import BaseLLMClient
 from src.processors.text_processor.recognizers.llm.clients.client_factory import create_llm_client
 from src.processors.text_processor.recognizers.llm.prompts.loader import PromptLoader
-from src.processors.text_processor.recognizers.llm.parsers.parser import ResponseParser
+from src.processors.text_processor.recognizers.llm.parsers.parser_factory import create_parser
 
 
 logger = get_module_logger(__name__)
@@ -47,9 +47,8 @@ class LLMRecognizer(EntityRecognizer):
             **kwargs: 其他参数
         """
         if not config:
-            from src.configs.processor_config import LLMRecognizerConfig
             config = LLMRecognizerConfig()
-            
+
         self.config = config
         
         # 默认支持的实体类型
@@ -58,14 +57,7 @@ class LLMRecognizer(EntityRecognizer):
                 "PERSON", "ID_CARD", "PHONE_NUMBER", "EMAIL_ADDRESS", 
                 "CREDIT_CARD", "BANK_ACCOUNT", "ADDRESS", "LOCATION"
             ]
-            
-        # 初始化父类
-        super().__init__(
-            supported_entities=supported_entities,
-            supported_language="zh",
-            name="LLMEntityRecognizer"
-        )
-        
+                    
         # 初始化LLM客户端
         self.llm_client = create_llm_client(config.client)
         
@@ -73,7 +65,14 @@ class LLMRecognizer(EntityRecognizer):
         self.prompt_loader = PromptLoader(config.prompts.prompt_template_path)
         
         # 初始化响应解析器
-        self.response_parser = ResponseParser()
+        self.response_parser = create_parser(config.client.type)
+        
+        # 初始化父类
+        super().__init__(
+            supported_entities=supported_entities,
+            supported_language="zh",
+            name="LLMEntityRecognizer"
+        )
         
         logger.info(f"LLM实体识别器已初始化 (使用{self.llm_client.__class__.__name__})")
         
@@ -85,8 +84,8 @@ class LLMRecognizer(EntityRecognizer):
     def analyze(
         self,
         text: str,
-        entities: List[str] = None,
-        nlp_artifacts: NlpArtifacts = None
+        entities: Optional[List[str]] = None,
+        nlp_artifacts: Optional[NlpArtifacts] = None
     ) -> List[RecognizerResult]:
         """
         分析文本中的PII实体
@@ -119,10 +118,10 @@ class LLMRecognizer(EntityRecognizer):
             llm_response = self.llm_client.generate(prompt)
             
             # 解析LLM响应
-            recognition_results = self.response_parser.parse(llm_response, text)
+            llm_response_obj = self.response_parser.parse(llm_response, text)
             
             # 转换为RecognizerResult
-            results = self.convert_to_recognizer_results(recognition_results)
+            results = self.convert_to_recognizer_results(llm_response_obj.entities)
             
             logger.debug(f"LLM识别结果: 找到{len(results)}个实体")
             return results
@@ -157,34 +156,45 @@ class LLMRecognizer(EntityRecognizer):
     
     def convert_to_recognizer_results(
         self, 
-        recognition_results: List[Dict[str, Any]]
+        entity_matches: List
     ) -> List[RecognizerResult]:
         """
         将LLM解析结果转换为标准的RecognizerResult格式
         
         Args:
-            recognition_results: LLM识别结果，格式为List[Dict]
+            entity_matches: EntityMatch对象列表
             
         Returns:
             List[RecognizerResult]: 标准格式的识别结果
         """
         results = []
         
-        for item in recognition_results:
+        for entity_match in entity_matches:
             try:
-                entity_type = item.get("entity_type")
-                start = item.get("start")
-                end = item.get("end")
-                score = item.get("confidence", 0.8)
-                
-                if entity_type and isinstance(start, int) and isinstance(end, int):
+                if hasattr(entity_match, 'entity_type'):
+                    # EntityMatch对象
                     result = RecognizerResult(
-                        entity_type=entity_type,
-                        start=start,
-                        end=end,
-                        score=score
+                        entity_type=entity_match.entity_type,
+                        start=entity_match.start,
+                        end=entity_match.end,
+                        score=entity_match.confidence
                     )
                     results.append(result)
+                else:
+                    # 字典格式（向后兼容）
+                    entity_type = entity_match.get("entity_type")
+                    start = entity_match.get("start")
+                    end = entity_match.get("end")
+                    score = entity_match.get("confidence", 0.8)
+                    
+                    if entity_type and isinstance(start, int) and isinstance(end, int):
+                        result = RecognizerResult(
+                            entity_type=entity_type,
+                            start=start,
+                            end=end,
+                            score=score
+                        )
+                        results.append(result)
             except Exception as e:
                 logger.warning(f"转换识别结果时出错: {str(e)}")
                 

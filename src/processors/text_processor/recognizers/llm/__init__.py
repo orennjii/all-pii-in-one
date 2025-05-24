@@ -8,9 +8,7 @@ LLM识别器模块
 """
 
 from src.processors.text_processor.recognizers.llm.recognizer import LLMRecognizer
-from src.processors.text_processor.recognizers.llm.gemini_recognizer import GeminiEntityRecognizer
 
 __all__ = [
     "LLMRecognizer",
-    "GeminiEntityRecognizer"
 ]
