@@ -54,18 +54,13 @@ text_processor/
 │       ├── __init__.py
 │       ├── recognizer.py
 │       ├── clients/            # LLM 客户端
-│       ├── config/             # LLM 配置
 │       ├── parsers/            # LLM 响应解析器
 │       └── prompts/            # LLM 提示词
 │
-├── utils/                      # 工具函数
-│   ├── __init__.py
-│   ├── validation.py           # 验证功能
-│   └── constants.py            # 常量定义
-│
-└── config/                     # 配置相关
+└── utils/                      # 工具函数
     ├── __init__.py
-    └── settings.py             # 配置设置
+    ├── validation.py           # 验证功能
+    └── constants.py            # 常量定义
 ```
 
 ## 主要组件介绍
@@ -129,7 +124,6 @@ API 层为外部提供统一的接口，是用户与 Text Processor 模块交互
 
 - `recognizer.py`: LLM 识别器的核心实现
 - `clients/`: LLM 服务客户端
-- `config/`: LLM 配置
 - `parsers/`: LLM 响应解析器
 - `prompts/`: LLM 提示词模板
 

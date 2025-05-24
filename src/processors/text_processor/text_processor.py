@@ -12,7 +12,7 @@ from presidio_analyzer import AnalyzerEngine, RecognizerRegistry
 from presidio_anonymizer import AnonymizerEngine
 from presidio_anonymizer.entities import OperatorConfig
 
-from .registry import register_chinese_pattern_recognizers
+from .utils.registry import register_chinese_pattern_recognizers
 from .text_pii_detector import TextPIIDetector, PresidioPIIDetector, PatternPIIDetector
 from .text_segmenter import TextSegmenter
 from .text_anonymizer_engine import TextAnonymizerEngine

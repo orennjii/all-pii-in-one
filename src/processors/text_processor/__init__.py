@@ -10,7 +10,7 @@
 用于识别、提取和匿名化中文文本中的敏感个人信息。
 """
 
-from .registry import register_chinese_pattern_recognizers, get_all_chinese_pattern_recognizers
+from .utils.registry import register_chinese_pattern_recognizers, get_all_chinese_pattern_recognizers
 from .recognizers.pattern import (
     BankCardRecognizer,
     CarPlateNumberRecognizer,
