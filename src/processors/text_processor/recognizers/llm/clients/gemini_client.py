@@ -30,7 +30,12 @@ class GeminiClient(BaseLLMClient):
     使用最新的 google-genai SDK。
     """
     
-    def __init__(self, config: LLMClientConfig):
+    def __init__(
+        self,
+        config: LLMClientConfig,
+        system_prompt: Optional[str] = None,
+        **kwargs: Any
+    ):
         """
         初始化Gemini客户端
         
@@ -43,12 +48,12 @@ class GeminiClient(BaseLLMClient):
         self.endpoint = config.endpoint
         self.model_name = config.model_name_or_path
 
-        self.system_prompt = config.system_prompt
-
         self.temperature = config.temperatures
         self.max_tokens = config.max_tokens
         self.top_k = config.top_k
         self.top_p = config.top_p
+
+        self.system_prompt = system_prompt or config.system_prompt
 
         self.client: Optional[genai.Client] = None
 
