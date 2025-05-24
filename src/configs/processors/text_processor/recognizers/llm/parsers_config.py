@@ -19,6 +19,11 @@ class LLMParsersConfig(BaseConfig):
         description="解析器类型，可选值: default, gemini"
     )
     
+    default_parser: str = Field(
+        default="gemini",
+        description="默认使用的解析器类型"
+    )
+    
     # JSON解析配置
     json_strict_mode: bool = Field(
         default=False, 
