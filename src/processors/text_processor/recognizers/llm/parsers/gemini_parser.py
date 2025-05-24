@@ -2,347 +2,398 @@
 # -*- coding: utf-8 -*-
 
 """
-Gemini模型响应解析器模块
+Gemini LLM响应解析器模块
 
-该模块提供用于解析Google Gemini模型响应的具体实现。
-处理Gemini返回的JSON、表格和纯文本格式，将其转换为标准的PII识别结果格式。
+专门用于解析Google Gemini模型的响应，支持JSON和文本格式的解析。
 """
 
-import re
 import json
-from typing import Dict, Any, Optional, List, Tuple, Union
+import re
+from typing import List, Dict, Any, Optional
 
 from src.commons.loggers import get_module_logger
-from src.configs.processors.text_processor.recognizers.llm.parsers_config import LLMParsersConfig
-from .parser import ResponseParser
+from src.configs.processors.text_processor.recognizers.llm import LLMParsersConfig
+from src.processors.text_processor.recognizers.llm.parsers.base_parser import (
+    BaseLLMParser, LLMResponse
+)
+from src.processors.text_processor.recognizers.llm.parsers.entity_match import EntityMatch
 
 logger = get_module_logger(__name__)
 
 
-class GeminiResponseParser(ResponseParser):
+class GeminiParser(BaseLLMParser):
     """
-    Google Gemini API响应解析器
+    Google Gemini响应解析器
     
-    专门解析来自Google Gemini模型的响应，支持多种输出格式：
-    - JSON格式：标准结构化格式
-    - 表格格式：Markdown或ASCII表格
-    - 文本格式：自然语言描述
+    专门处理Gemini模型的响应格式，支持多种响应格式的解析。
     """
     
-    def __init__(self, config: Optional[LLMParsersConfig] = None, **kwargs):
+    def __init__(self, config: LLMParsersConfig):
         """
         初始化Gemini解析器
         
         Args:
-            config: LLM解析器配置
-            **kwargs: 其他参数，可包括:
-                expected_format: 期望的响应格式，可选值：'json', 'table', 'text', 'auto'
-                fallback_to_text: 如果结构化解析失败，是否回退到文本解析
-                strict_mode: 是否使用严格模式解析JSON
-                default_score: 默认置信度分数
+            config: 解析器配置
         """
-        # 使用配置
-        if not config:
-            from src.configs.processors.text_processor.recognizers.llm import LLMParsersConfig
-            config = LLMParsersConfig()
-            
-        # 合并配置和kwargs
-        kwargs['fallback_to_text'] = kwargs.get('fallback_to_text', True)
-        kwargs['default_score'] = kwargs.get('default_score', 0.8)
-        kwargs['strict_mode'] = kwargs.get('strict_mode', config.json_strict_mode)
-        
-        # 期望格式和支持的格式
-        self.expected_format = kwargs.get('expected_format', 'auto')
+        super().__init__(config)
         self.supported_formats = config.gemini_response_formats
+        self.json_strict_mode = config.json_strict_mode
         
-        super().__init__(**kwargs)
-        
-        logger.debug(f"Gemini解析器已初始化, 期望格式: {self.expected_format}")
-    
-    def parse(
-        self, 
-        llm_response: str,
-        original_text: str, 
-        entities: Optional[List[str]] = None
-    ) -> List[Dict[str, Any]]:
+    def parse(self, response: str, original_text: str) -> LLMResponse:
         """
-        解析Gemini响应并返回识别结果列表
+        解析Gemini的响应
         
         Args:
-            llm_response: LLM返回的原始文本响应
+            response: Gemini的原始响应
             original_text: 原始输入文本
-            entities: 要查找的实体类型列表（可选）
             
         Returns:
-            List[Dict[str, Any]]: 包含实体识别结果的列表，每个结果包含:
-                - entity_type: 实体类型
-                - start: 在原始文本中的起始位置
-                - end: 在原始文本中的结束位置
-                - confidence: 置信度分数
-                - value: 实体值
+            LLMResponse: 解析后的标准化响应
         """
-        if not llm_response or not original_text:
-            logger.warning("收到空响应或原始文本为空")
-            return []
-            
-        # 尝试不同格式的解析，按优先级排序
-        if self.expected_format == 'auto':
-            # 自动检测格式
-            formats_to_try = ['json', 'table', 'text']
-        else:
-            # 使用指定格式，如果失败则回退到文本格式
-            formats_to_try = [self.expected_format]
-            if self.fallback_to_text and self.expected_format != 'text':
-                formats_to_try.append('text')
-                
-        results = []
+        entities = []
+        parsing_errors = []
+        metadata = {"parser_type": "gemini"}
         
-        for fmt in formats_to_try:
-            if fmt not in self.supported_formats:
-                continue
-                
-            try:
-                logger.debug(f"尝试以{fmt}格式解析Gemini响应")
-                if fmt == 'json':
-                    results = self._parse_json_response(llm_response, original_text)
-                elif fmt == 'table':
-                    results = self._parse_table_response(llm_response, original_text)
-                elif fmt == 'text':
-                    results = self._parse_text_response(llm_response, original_text)
-                    
-                if results:
-                    logger.debug(f"成功以{fmt}格式解析Gemini响应，找到{len(results)}个实体")
-                    break
-            except Exception as e:
-                logger.warning(f"{fmt}格式解析失败: {str(e)}")
-                continue
-        
-        # 过滤实体（如果指定）
-        if entities and results:
-            results = [r for r in results if r.get('entity_type', '').upper() in [e.upper() for e in entities]]
+        try:
+            # 清理响应文本
+            cleaned_response = self._clean_response(response)
             
-        return results
+            # 尝试不同的解析方法
+            entities = self._try_parse_methods(
+                cleaned_response, original_text, parsing_errors
+            )
+            
+            # 后处理实体
+            entities = self.post_process_entities(entities, original_text)
+            
+            metadata["parsed_entities_count"] = str(len(entities))
+            
+        except Exception as e:
+            error_msg = f"解析Gemini响应时出错: {str(e)}"
+            logger.error(error_msg)
+            parsing_errors.append(error_msg)
+        
+        return LLMResponse(
+            entities=entities,
+            raw_response=response,
+            metadata=metadata,
+            parsing_errors=parsing_errors if parsing_errors else None
+        )
     
-    def _parse_json_response(self, response: str, original_text: str) -> List[Dict[str, Any]]:
+    def _clean_response(self, response: str) -> str:
         """
-        解析JSON格式的响应
+        清理响应文本，移除不必要的内容
         
         Args:
-            response: Gemini响应文本
-            original_text: 原始文本
+            response: 原始响应
             
         Returns:
-            List[Dict[str, Any]]: 解析结果列表
+            str: 清理后的响应
         """
-        # 提取JSON部分
-        json_data = self._extract_json_from_text(response)
-        if not json_data:
-            raise ValueError("响应不包含有效的JSON数据")
-            
-        # 处理不同的JSON结构
-        results = []
+        # 移除Markdown代码块标记
+        response = re.sub(r'```json\s*', '', response)
+        response = re.sub(r'```\s*$', '', response)
         
-        # 处理数组格式
-        if isinstance(json_data, list):
-            for item in json_data:
-                result = self._process_json_entity(item, original_text)
-                if result:
-                    results.append(result)
-        # 处理包含entities字段的对象格式
-        elif isinstance(json_data, dict):
-            if 'entities' in json_data and isinstance(json_data['entities'], list):
-                for item in json_data['entities']:
-                    result = self._process_json_entity(item, original_text)
-                    if result:
-                        results.append(result)
-            # 处理包含results字段的对象格式
-            elif 'results' in json_data and isinstance(json_data['results'], list):
-                for item in json_data['results']:
-                    result = self._process_json_entity(item, original_text)
-                    if result:
-                        results.append(result)
-            # 处理直接是实体列表的对象
-            else:
-                # 可能对象本身就是一个实体
-                result = self._process_json_entity(json_data, original_text)
-                if result:
-                    results.append(result)
-                    
-        return results
+        # 移除多余的空白字符
+        response = response.strip()
         
-    def _process_json_entity(self, entity_data: Dict[str, Any], original_text: str) -> Optional[Dict[str, Any]]:
-        """
-        处理单个JSON实体数据
+        # 移除可能的说明文本
+        lines = response.split('\n')
+        cleaned_lines = []
         
-        Args:
-            entity_data: 实体JSON数据
-            original_text: 原始文本
-            
-        Returns:
-            Optional[Dict[str, Any]]: 处理后的实体数据，如果无效则返回None
-        """
-        # 检查必要的字段
-        entity_type = entity_data.get('type') or entity_data.get('entity_type') or entity_data.get('entityType')
-        if not entity_type:
-            return None
-            
-        # 规范化实体类型
-        entity_type = self._normalize_entity_type(entity_type)
-        
-        # 获取实体值
-        entity_value = entity_data.get('value') or entity_data.get('text') or entity_data.get('content')
-        if not entity_value:
-            return None
-            
-        # 获取位置信息
-        start = entity_data.get('start')
-        end = entity_data.get('end')
-        
-        # 如果没有提供位置信息，尝试自己查找
-        if start is None or end is None:
-            start, end = self._find_text_position(original_text, entity_value)
-            if start == -1:  # 找不到位置
-                return None
-                
-        # 获取置信度，如果没有则使用默认值
-        confidence = entity_data.get('confidence') or entity_data.get('score') or self.default_score
-        
-        return {
-            'entity_type': entity_type,
-            'start': start,
-            'end': end,
-            'confidence': float(confidence),
-            'value': entity_value
-        }
-        
-    def _parse_table_response(self, response: str, original_text: str) -> List[Dict[str, Any]]:
-        """
-        解析表格格式的响应（Markdown表格）
-        
-        Args:
-            response: Gemini响应文本
-            original_text: 原始文本
-            
-        Returns:
-            List[Dict[str, Any]]: 解析结果列表
-        """
-        results = []
-        
-        # 尝试匹配Markdown表格
-        table_pattern = r'\|([^|]+)\|([^|]+)\|([^|]+)\|([^|]*)\|'
-        headers = None
-        
-        for line in response.split('\n'):
+        for line in lines:
             line = line.strip()
-            
-            # 跳过表头分隔符行 (| --- | --- | --- |)
-            if re.match(r'\|\s*[-:]+\s*\|', line):
+            # 跳过解释性文本
+            if (line.startswith('以下是') or 
+                line.startswith('根据') or 
+                line.startswith('识别结果') or
+                '如下' in line):
                 continue
-                
-            match = re.match(table_pattern, line)
-            if match:
-                if not headers:
-                    # 这是表头行，记录列名
-                    headers = [h.strip().lower() for h in match.groups()]
-                    continue
-                    
-                # 这是数据行
-                columns = [col.strip() for col in match.groups()]
-                
-                # 解析表格数据
-                entity = {}
-                for i, header in enumerate(headers):
-                    if i < len(columns):
-                        if 'type' in header or 'entity' in header:
-                            entity['entity_type'] = columns[i]
-                        elif 'value' in header or 'text' in header or 'content' in header:
-                            entity['value'] = columns[i]
-                        elif 'confidence' in header or 'score' in header:
-                            try:
-                                entity['confidence'] = float(columns[i])
-                            except ValueError:
-                                entity['confidence'] = self.default_score
-                                
-                # 如果表格包含了必要的信息
-                if 'entity_type' in entity and 'value' in entity:
-                    # 规范化实体类型
-                    entity['entity_type'] = self._normalize_entity_type(entity['entity_type'])
-                    
-                    # 查找位置
-                    start, end = self._find_text_position(original_text, entity['value'])
-                    if start != -1:
-                        entity['start'] = start
-                        entity['end'] = end
-                        if 'confidence' not in entity:
-                            entity['confidence'] = self.default_score
-                        results.append(entity)
+            cleaned_lines.append(line)
         
-        return results
-        
-    def _parse_text_response(self, response: str, original_text: str) -> List[Dict[str, Any]]:
+        return '\n'.join(cleaned_lines).strip()
+    
+    def _try_parse_methods(
+        self, 
+        response: str, 
+        original_text: str, 
+        parsing_errors: List[str]
+    ) -> List[EntityMatch]:
         """
-        解析文本格式的响应
+        尝试多种解析方法
         
         Args:
-            response: Gemini响应文本
+            response: 清理后的响应
             original_text: 原始文本
+            parsing_errors: 错误列表
             
         Returns:
-            List[Dict[str, Any]]: 解析结果列表
+            List[EntityMatch]: 解析得到的实体列表
         """
-        results = []
+        # 方法1: 标准JSON解析
+        entities = self._parse_json_response(response, parsing_errors)
+        if entities:
+            logger.debug(f"JSON解析成功，获得 {len(entities)} 个实体")
+            return entities
         
-        # 尝试使用正则表达式匹配实体描述
-        # 匹配格式如: "Type/Entity: Person, Value: John Doe" 或 "Person: John Doe"
-        entity_patterns = [
-            r'(?:Type|Entity|实体类型)[^\w]*:?\s*([A-Za-z0-9_\u4e00-\u9fa5]+)[^\w]*(?:Value|Text|Value\/Text|值)[^\w]*:?\s*([^\n,;]+)',
-            r'([A-Za-z0-9_\u4e00-\u9fa5]+)\s*:\s*([^\n,;]+)',
-        ]
+        # 方法2: 宽松JSON解析
+        entities = self._parse_relaxed_json(response, parsing_errors)
+        if entities:
+            logger.debug(f"宽松JSON解析成功，获得 {len(entities)} 个实体")
+            return entities
         
-        for pattern in entity_patterns:
-            for match in re.finditer(pattern, response):
-                entity_type = match.group(1).strip()
-                entity_value = match.group(2).strip()
-                
-                # 规范化实体类型
-                entity_type = self._normalize_entity_type(entity_type)
-                
-                # 查找位置
-                start, end = self._find_text_position(original_text, entity_value)
-                if start != -1:
-                    entity = {
-                        'entity_type': entity_type,
-                        'value': entity_value,
-                        'start': start,
-                        'end': end,
-                        'confidence': self.default_score
-                    }
-                    results.append(entity)
+        # 方法3: 正则表达式解析
+        entities = self._parse_with_regex(response, original_text, parsing_errors)
+        if entities:
+            logger.debug(f"正则表达式解析成功，获得 {len(entities)} 个实体")
+            return entities
         
-        # 如果上面的模式没有找到任何实体，尝试更宽松的方式
-        if not results:
-            # 查找冒号分隔的键值对
-            lines = [line.strip() for line in response.split('\n') if line.strip()]
+        # 方法4: 表格格式解析
+        entities = self._parse_table_format(response, original_text, parsing_errors)
+        if entities:
+            logger.debug(f"表格格式解析成功，获得 {len(entities)} 个实体")
+            return entities
+        
+        logger.warning("所有解析方法都失败了")
+        return []
+    
+    def _parse_json_response(
+        self, 
+        response: str, 
+        parsing_errors: List[str]
+    ) -> List[EntityMatch]:
+        """
+        解析标准JSON格式的响应
+        
+        Args:
+            response: 响应文本
+            parsing_errors: 错误列表
+            
+        Returns:
+            List[EntityMatch]: 解析得到的实体列表
+        """
+        try:
+            # 提取JSON部分
+            json_match = re.search(r'\[.*\]', response, re.DOTALL)
+            if not json_match:
+                return []
+            
+            json_str = json_match.group(0)
+            data = json.loads(json_str)
+            
+            if not isinstance(data, list):
+                parsing_errors.append("JSON响应不是数组格式")
+                return []
+            
+            entities = []
+            for item in data:
+                try:
+                    entity = self._parse_entity_dict(item)
+                    if entity:
+                        entities.append(entity)
+                except Exception as e:
+                    parsing_errors.append(f"解析实体项失败: {str(e)}")
+                    continue
+            
+            return entities
+            
+        except json.JSONDecodeError as e:
+            parsing_errors.append(f"JSON解析失败: {str(e)}")
+            return []
+        except Exception as e:
+            parsing_errors.append(f"标准JSON解析出错: {str(e)}")
+            return []
+    
+    def _parse_relaxed_json(
+        self, 
+        response: str, 
+        parsing_errors: List[str]
+    ) -> List[EntityMatch]:
+        """
+        宽松的JSON解析，尝试修复常见的JSON格式问题
+        
+        Args:
+            response: 响应文本
+            parsing_errors: 错误列表
+            
+        Returns:
+            List[EntityMatch]: 解析得到的实体列表
+        """
+        try:
+            # 修复常见的JSON格式问题
+            fixed_response = response
+            
+            # 修复缺失的引号
+            fixed_response = re.sub(r'(\w+):', r'"\1":', fixed_response)
+            
+            # 修复尾随逗号
+            fixed_response = re.sub(r',\s*}', '}', fixed_response)
+            fixed_response = re.sub(r',\s*]', ']', fixed_response)
+            
+            # 修复单引号
+            fixed_response = fixed_response.replace("'", '"')
+            
+            return self._parse_json_response(fixed_response, parsing_errors)
+            
+        except Exception as e:
+            parsing_errors.append(f"宽松JSON解析出错: {str(e)}")
+            return []
+    
+    def _parse_with_regex(
+        self, 
+        response: str, 
+        original_text: str, 
+        parsing_errors: List[str]
+    ) -> List[EntityMatch]:
+        """
+        使用正则表达式解析响应
+        
+        Args:
+            response: 响应文本
+            original_text: 原始文本
+            parsing_errors: 错误列表
+            
+        Returns:
+            List[EntityMatch]: 解析得到的实体列表
+        """
+        try:
+            entities = []
+            
+            # 匹配实体模式: 实体类型: 实体值 (位置: start-end)
+            pattern = r'(\w+):\s*([^(]+)\s*\((?:位置:|position:)?\s*(\d+)-(\d+)\)'
+            matches = re.findall(pattern, response, re.IGNORECASE)
+            
+            for match in matches:
+                entity_type, value, start_str, end_str = match
+                try:
+                    start = int(start_str)
+                    end = int(end_str)
+                    
+                    entity = EntityMatch(
+                        entity_type=entity_type.strip().upper(),
+                        value=value.strip(),
+                        start=start,
+                        end=end,
+                        confidence=0.8  # 默认置信度
+                    )
+                    entities.append(entity)
+                    
+                except ValueError as e:
+                    parsing_errors.append(f"解析位置信息失败: {str(e)}")
+                    continue
+            
+            return entities
+            
+        except Exception as e:
+            parsing_errors.append(f"正则表达式解析出错: {str(e)}")
+            return []
+    
+    def _parse_table_format(
+        self, 
+        response: str, 
+        original_text: str, 
+        parsing_errors: List[str]
+    ) -> List[EntityMatch]:
+        """
+        解析表格格式的响应
+        
+        Args:
+            response: 响应文本
+            original_text: 原始文本
+            parsing_errors: 错误列表
+            
+        Returns:
+            List[EntityMatch]: 解析得到的实体列表
+        """
+        try:
+            entities = []
+            lines = response.split('\n')
+            
             for line in lines:
-                if ':' in line:
-                    parts = line.split(':', 1)
-                    if len(parts) == 2:
-                        entity_type = parts[0].strip()
-                        entity_value = parts[1].strip()
+                line = line.strip()
+                if not line or '|' not in line:
+                    continue
+                
+                # 解析表格行: | 实体类型 | 实体值 | 起始位置 | 结束位置 | 置信度 |
+                parts = [part.strip() for part in line.split('|')]
+                if len(parts) >= 6:
+                    try:
+                        entity_type = parts[1]
+                        value = parts[2]
+                        start = int(parts[3])
+                        end = int(parts[4])
+                        confidence = float(parts[5])
                         
-                        # 规范化实体类型
-                        entity_type = self._normalize_entity_type(entity_type)
+                        if not entity_type or not value:
+                            parsing_errors.append("实体类型或值为空")
+                            continue
                         
-                        # 查找位置
-                        start, end = self._find_text_position(original_text, entity_value)
-                        if start != -1:
-                            entity = {
-                                'entity_type': entity_type,
-                                'value': entity_value,
-                                'start': start,
-                                'end': end,
-                                'confidence': self.default_score
-                            }
-                            results.append(entity)
+                        entity = EntityMatch(
+                            entity_type=entity_type.upper(),
+                            value=value,
+                            start=start,
+                            end=end,
+                            confidence=confidence
+                        )
+                        entities.append(entity)
+                        
+                    except (ValueError, IndexError) as e:
+                        parsing_errors.append(f"解析表格行失败: {str(e)}")
+                        continue
+            
+            return entities
+            
+        except Exception as e:
+            parsing_errors.append(f"表格格式解析出错: {str(e)}")
+            return []
+    
+    def _parse_entity_dict(self, item: Dict[str, Any]) -> Optional[EntityMatch]:
+        """
+        从字典解析单个实体
         
-        return results
+        Args:
+            item: 实体字典
+            
+        Returns:
+            Optional[EntityMatch]: 解析得到的实体，失败时返回None
+        """
+        try:
+            # 必需字段
+            entity_type = item.get("entity_type")
+            value = item.get("value")
+            start = item.get("start")
+            end = item.get("end")
+            confidence = item.get("confidence", 0.8)
+            
+            # 必需字段验证和类型转换
+            if not entity_type or not value or start is None or end is None:
+                logger.warning(f"实体字典缺少必需字段: {item}")
+                return None
+            
+            try:
+                start_int = int(start)
+                end_int = int(end)
+                confidence_float = float(confidence)
+            except (ValueError, TypeError) as e:
+                logger.warning(f"类型转换失败: {str(e)}, 数据: {item}")
+                return None
+            
+            # 可选字段
+            is_inferred = item.get("is_inferred")
+            notes = item.get("notes")
+            metadata = item.get("metadata")
+            
+            return EntityMatch(
+                entity_type=str(entity_type).upper(),
+                value=str(value),
+                start=start_int,
+                end=end_int,
+                confidence=confidence_float,
+                is_inferred=is_inferred,
+                notes=notes,
+                metadata=metadata
+            )
+            
+        except (ValueError, TypeError) as e:
+            logger.warning(f"解析实体字典时出错: {str(e)}, 数据: {item}")
+            return None
