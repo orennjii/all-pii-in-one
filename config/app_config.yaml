@@ -45,6 +45,6 @@ text_processor:
         # api_key: "YOUR_API_KEY"  # 请替换为您的API密钥或通过环境变量GEMINI_API_KEY设置
         system_prompt: "你是一个专注于识别文本中个人隐私信息(PII)的AI助手。请准确找出所有PII并以JSON格式返回。"
       prompts:
-        prompt_template_path: "src/processors/text_processor/recognizers/llm/prompts/default_prompt.json"
+        prompt_template_path: "src/config/prompt_template.json"
       parsers:
         example: "default"
