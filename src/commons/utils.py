@@ -14,6 +14,12 @@ from pathlib import Path
 import numpy as np
 import yaml
 
+# 内部模块
+from .loggers import get_module_logger
+
+# 获取当前模块的日志记录器
+logger = get_module_logger(__name__)
+
 
 def create_temp_dir(prefix="temp_"):
     """
@@ -24,7 +30,9 @@ def create_temp_dir(prefix="temp_"):
     Returns:
         str: 临时目录路径
     """
-    return tempfile.mkdtemp(prefix=prefix)
+    temp_dir = tempfile.mkdtemp(prefix=prefix)
+    logger.debug(f"创建临时目录: {temp_dir}")
+    return temp_dir
 
 
 def cleanup_temp_dir(temp_dir):
@@ -35,7 +43,12 @@ def cleanup_temp_dir(temp_dir):
         temp_dir (str): 临时目录路径
     """
     if temp_dir and os.path.exists(temp_dir):
-        shutil.rmtree(temp_dir)
+        logger.debug(f"清理临时目录: {temp_dir}")
+        try:
+            shutil.rmtree(temp_dir)
+            logger.debug(f"临时目录清理完成: {temp_dir}")
+        except Exception as e:
+            logger.error(f"清理临时目录失败: {temp_dir}, 错误: {str(e)}")
 
 
 def load_yaml_config(config_path):
@@ -48,8 +61,15 @@ def load_yaml_config(config_path):
     Returns:
         dict: 配置数据
     """
-    with open(config_path, 'r', encoding='utf-8') as f:
-        return yaml.safe_load(f)
+    logger.debug(f"加载配置文件: {config_path}")
+    try:
+        with open(config_path, 'r', encoding='utf-8') as f:
+            config_data = yaml.safe_load(f)
+            logger.debug(f"成功加载配置文件: {config_path}")
+            return config_data
+    except Exception as e:
+        logger.error(f"加载配置文件失败: {config_path}, 错误: {str(e)}")
+        raise
 
 
 def ensure_directory_exists(directory):
@@ -59,12 +79,20 @@ def ensure_directory_exists(directory):
     Args:
         directory (str): 目录路径
     """
-    os.makedirs(directory, exist_ok=True)
+    try:
+        if not os.path.exists(directory):
+            logger.debug(f"创建目录: {directory}")
+            os.makedirs(directory, exist_ok=True)
+        else:
+            logger.debug(f"目录已存在: {directory}")
+    except Exception as e:
+        logger.error(f"创建目录失败: {directory}, 错误: {str(e)}")
+        raise
 
 def find_project_root(
         current_path: Path | str,
         marker_filename: str = ".git"
-    ) -> Path | None:
+    ) -> Path:
     """
     向上查找包含特定标记文件的项目根目录。
     """
@@ -77,6 +105,9 @@ def find_project_root(
 
     if (path / marker_filename).exists():
         return path
-    return None
+    else:
+        raise FileNotFoundError(
+            f"未找到包含标记文件 '{marker_filename}' 的项目根目录。"
+        )
 
 
