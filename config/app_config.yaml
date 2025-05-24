@@ -1,0 +1,50 @@
+# 应用程序主配置文件
+
+# -------------------------------------------
+# 通用配置 (General Configuration)
+# -------------------------------------------
+general:
+  log_level: "INFO"  # 日志级别 (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+  temp_file_dir: "/tmp/pii_app" # 临时文件存储目录
+  # Gradio UI 相关设置 (如果适用)
+  ui:
+    theme: "default" # UI 主题
+    share_ui: false   # 是否通过 Gradio 分享 UI
+    server_name: "0.0.0.0"
+    server_port: 7860
+
+# -------------------------------------------
+# 设备配置 (Device Configuration)
+# -------------------------------------------
+device:
+  use_gpu: true       # 是否优先使用 GPU (如果可用)
+  gpu_id: 0           # 使用的 GPU ID (如果 use_gpu 为 true)
+  use_fp16: true      # 是否为兼容模型启用半精度 (FP16) 推理以提高速度
+
+# -------------------------------------------
+# 文本处理器配置 (Text Processor Configuration)
+# -------------------------------------------
+text_processor:
+  recognizers:
+    pattern:
+      enabled: true
+      id_card: true
+      phone_number: true
+      bank_card: true
+      car_plate: true
+      url: true
+    llm:
+      enabled: true  # 启用LLM识别器
+      client:
+        type: "Gemini"  # 使用Gemini客户端
+        model_name_or_path: "gemini-2.5-flash-preview-05-20"  # 使用最新的Gemini模型
+        temperatures: 0.2  # 降低温度以获得更确定性的输出
+        max_tokens: 2000  # 设置最大token数
+        top_p: 0.9
+        top_k: 50
+        # api_key: "YOUR_API_KEY"  # 请替换为您的API密钥或通过环境变量GEMINI_API_KEY设置
+        system_prompt: "你是一个专注于识别文本中个人隐私信息(PII)的AI助手。请准确找出所有PII并以JSON格式返回。"
+      prompts:
+        prompt_template_path: "src/processors/text_processor/recognizers/llm/prompts/default_prompt.json"
+      parsers:
+        example: "default"
