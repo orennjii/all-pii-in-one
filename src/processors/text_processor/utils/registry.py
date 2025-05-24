@@ -6,7 +6,7 @@ from typing import List
 from presidio_analyzer import RecognizerRegistry
 from presidio_analyzer import EntityRecognizer
 
-from .recognizers.pattern import (
+from ..recognizers.pattern import (
     BankCardRecognizer,
     CarPlateNumberRecognizer,
     IDCardRecognizer,
