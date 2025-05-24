@@ -4,7 +4,7 @@
 
 from typing import List
 from presidio_analyzer import RecognizerRegistry
-from presidio_analyzer.recognizer import EntityRecognizer
+from presidio_analyzer import EntityRecognizer
 
 from .recognizers.pattern import (
     BankCardRecognizer,

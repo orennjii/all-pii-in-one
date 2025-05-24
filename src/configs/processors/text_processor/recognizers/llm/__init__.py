@@ -8,9 +8,9 @@ LLM识别器配置模块
 from pydantic import Field
 
 from src.configs.base_config import BaseConfig
-from src.configs.processors.text_processor.recognizers.llm.client import LLMClientConfig
-from src.configs.processors.text_processor.recognizers.llm.prompts import LLMPromptsConfig
-from src.configs.processors.text_processor.recognizers.llm.parsers import LLMParsersConfig
+from src.configs.processors.text_processor.recognizers.llm.client_config import LLMClientConfig
+from src.configs.processors.text_processor.recognizers.llm.prompts_config import LLMPromptsConfig
+from src.configs.processors.text_processor.recognizers.llm.parsers_config import LLMParsersConfig
 
 
 class LLMRecognizerConfig(BaseConfig):

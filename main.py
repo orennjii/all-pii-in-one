@@ -6,7 +6,7 @@ from presidio_analyzer.nlp_engine import NlpEngineProvider
 from presidio_anonymizer import (
     AnonymizerEngine,
 )
-from src.core.pattern_recognizer import register_chinese_pattern_recognizers, get_all_chinese_pattern_recognizers
+from src.processors.text_processor.pattern_recognizer import register_chinese_pattern_recognizers, get_all_chinese_pattern_recognizers
 
 def main():
     nlp_engine = NlpEngineProvider(nlp_configuration={
