@@ -7,8 +7,8 @@
 负责加载和格式化LLM提示词模板，支持多种模板格式和变量替换。
 """
 
-import json
 import os
+import yaml
 from typing import Dict, Any, Optional, List
 from pathlib import Path
 
@@ -152,7 +152,7 @@ class PromptLoader:
                 # 如果找不到，使用相对路径
                 project_root = Path.cwd()
                 
-            template_path = os.path.join(project_root, "config", "prompt_template.json")
+            template_path = os.path.join(project_root, "config", "prompt_template.yaml")
         
         self.template_path = Path(template_path)
         self.templates: Dict[str, PromptTemplate] = {}
@@ -166,7 +166,7 @@ class PromptLoader:
                 return
             
             with open(self.template_path, 'r', encoding='utf-8') as f:
-                data = json.load(f)
+                data = yaml.safe_load(f)
             
             if not isinstance(data, dict):
                 raise ValueError("模板文件格式无效：根对象必须是字典")
@@ -197,8 +197,8 @@ class PromptLoader:
             
         except FileNotFoundError:
             logger.error(f"模板文件未找到: {self.template_path}")
-        except json.JSONDecodeError as e:
-            logger.error(f"模板文件JSON格式无效: {str(e)}")
+        except yaml.YAMLError as e:
+            logger.error(f"模板文件YAML格式无效: {str(e)}")
         except Exception as e:
             logger.error(f"加载模板文件失败: {str(e)}")
     
@@ -402,7 +402,7 @@ class PromptLoader:
             
             # 保存到文件
             with open(self.template_path, 'w', encoding='utf-8') as f:
-                json.dump(data, f, ensure_ascii=False, indent=2)
+                yaml.dump(data, f, default_flow_style=False, allow_unicode=True, indent=2)
             
             logger.info(f"模板已保存到: {self.template_path}")
             

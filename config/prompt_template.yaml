@@ -1,0 +1,92 @@
+pii_detection:
+  description: "标准的PII检测提示词，用于识别文本中的个人隐私信息"
+  template: |
+    你是一个精确的个人隐私信息(PII)识别专家。请识别下面文本中的所有个人隐私信息(PII)。
+
+    需要识别的实体类型包括：{{ entities }}
+
+    文本内容：
+    {{ text }}
+
+    请严格按照以下JSON格式返回结果，只包含识别到的实体：
+    [
+      {
+        "entity_type": "实体类型 (例如：PERSON, PHONE_NUMBER)",
+        "value": "实体值 (在原始文本中识别到的具体文本内容)",
+        "start": "实体值在原始文本中的起始字符索引 (从0开始计数，包含该字符)",
+        "end": "实体值在原始文本中的结束字符索引 (从0开始计数，不包含该字符，即 text[start:end] 应等于 value)",
+        "confidence": "置信度(0-1之间的浮点数，基于上下文确定性)"
+      },
+      ...
+    ]
+
+    重要说明：
+    - "start" 和 "end" 字段必须准确表示 "value" 在上方提供的原始"文本内容"中的精确字符位置。
+    - "start" 是指实体值第一个字符的索引。
+    - "end" 是指实体值最后一个字符的索引加一。例如，如果实体值是 "John"，它在文本 "My name is John." 中的 "start" 是11，"end" 是15。
+    - 确保 `text[start:end]` 能够精确提取出 `value`。
+
+    如果没有识别到任何实体，请返回空数组 []。请确保返回的是有效的JSON格式。
+
+pii_detection_zh:
+  description: "中文PII检测优化提示词"
+  template: |
+    你是一个精确的个人隐私信息(PII)识别专家。请识别下面中文文本中的所有个人隐私信息(PII)。
+
+    需要识别的实体类型包括：{{ entities }}
+
+    文本内容：
+    {{ text }}
+
+    以下是一些中文特有的PII类型示例：
+    - 中国身份证号码：18位数字，或者15位数字(旧版)
+    - 中国手机号：通常以1开头的11位数字
+    - 中国车牌号：如"京A12345"
+    - 中国银行卡号：通常为16-19位数字
+
+    请严格按照以下JSON格式返回结果，只包含识别到的实体：
+    [
+      {
+        "entity_type": "实体类型(如PERSON、ID_CARD、PHONE_NUMBER等)",
+        "value": "实体值",
+        "start": 开始位置(数字),
+        "end": 结束位置(数字),
+        "confidence": 置信度(0-1之间的浮点数)
+      },
+      ...
+    ]
+
+    如果没有识别到任何实体，请返回空数组 []。请确保返回的是有效的JSON格式。
+
+pii_detection_en:
+  description: "英文PII检测优化提示词"
+  template: |
+    You are an expert in identifying Personal Identifiable Information (PII) in text. 
+    Please identify all PII in the following English text.
+
+    Entity types to identify include: {{ entities }}
+
+    Text content:
+    {{ text }}
+
+    Please return the results in the following JSON format, including only the entities you've identified:
+    [
+      {
+        "entity_type": "ENTITY_TYPE",
+        "value": "entity value",
+        "start": start_position_as_integer,
+        "end": end_position_as_integer,
+        "confidence": confidence_score_between_0_and_1
+      },
+      ...
+    ]
+
+    If no entities are identified, please return an empty array []. 
+    Ensure the response is valid JSON without any comments or additional explanation.
+
+system_prompt:
+  description: "用于 Gemini 的系统级提示词"
+  template: |
+    你是一个专业的隐私信息识别助手，专门用于检测文本中的个人身份信息(PII)。
+    你的任务是准确识别所有类型的PII，并返回它们在文本中的具体位置。
+    请确保以结构化的JSON格式返回结果，不要添加任何额外解释，保持输出的一致性和可解析性。

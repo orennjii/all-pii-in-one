@@ -26,17 +26,17 @@ device:
 # -------------------------------------------
 text_processor:
   recognizers:
-    pattern:
+    pattern_recognizer:
       enabled: true
       id_card: true
       phone_number: true
       bank_card: true
       car_plate: true
       url: true
-    llm:
+    llm_recognizer:
       enabled: true  # 启用LLM识别器
       client:
-        type: "Gemini"  # 使用Gemini客户端
+        type: "gemini"  # 使用Gemini客户端
         model_name_or_path: "gemini-2.5-flash-preview-05-20"  # 使用最新的Gemini模型
         temperatures: 0.2  # 降低温度以获得更确定性的输出
         max_tokens: 2000  # 设置最大token数
@@ -44,6 +44,6 @@ text_processor:
         top_k: 50
         # api_key: "YOUR_API_KEY"  # 请替换为您的API密钥或通过环境变量GEMINI_API_KEY设置
       prompts:
-        prompt_template_path: "config/prompt_template.json"
+        prompt_template_path: "config/prompt_template.yaml"
       parsers:
         example: "default"
