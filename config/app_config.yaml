@@ -22,28 +22,104 @@ device:
   use_fp16: true      # 是否为兼容模型启用半精度 (FP16) 推理以提高速度
 
 # -------------------------------------------
-# 文本处理器配置 (Text Processor Configuration)
+# 处理器配置 (Processor Configuration)
 # -------------------------------------------
-text_processor:
-  recognizers:
-    pattern_recognizer:
-      enabled: true
-      id_card: true
-      phone_number: true
-      bank_card: true
-      car_plate: true
-      url: true
-    llm_recognizer:
-      enabled: true  # 启用LLM识别器
-      client:
-        type: "gemini"  # 使用Gemini客户端
-        model_name_or_path: "gemini-2.5-flash-preview-05-20"  # 使用最新的Gemini模型
-        temperatures: 0  # 降低温度以获得更确定性的输出
-        max_tokens: 20000  # 设置最大token数
-        top_p: 0.9
-        top_k: 50
-        # api_key: "YOUR_API_KEY"  # 请替换为您的API密钥或通过环境变量GEMINI_API_KEY设置
-      prompts:
-        prompt_template_path: "config/prompt_template.yaml"
-      parsers:
-        example: "default"
+processor:
+  text_processor:
+    analyzer:
+      presidio_enabled: true
+      supported_languages: ["zh", "en"]
+      default_language: "zh"
+      enable_pattern_recognizers: true
+      enable_llm_recognizers: true
+      default_score_threshold: 0.5
+      parallel_processing: false
+      max_workers: 4
+      enable_cache: true
+      cache_size: 1000
+      
+    anonymizer:
+      presidio_enabled: true
+      default_anonymization_strategy: "replace"
+      entity_anonymization_config:
+        PERSON:
+          operator: "replace"
+          params:
+            new_value: "[PERSON]"
+        PHONE_NUMBER:
+          operator: "mask"
+          params:
+            masking_char: "*"
+            chars_to_mask: 7
+            from_end: true
+        ID_CARD:
+          operator: "mask"
+          params:
+            masking_char: "*"
+            chars_to_mask: 12
+            from_end: false
+        BANK_CARD:
+          operator: "mask"
+          params:
+            masking_char: "*"
+            chars_to_mask: 12
+            from_end: false
+        EMAIL_ADDRESS:
+          operator: "replace"
+          params:
+            new_value: "[EMAIL]"
+        URL:
+          operator: "replace"
+          params:
+            new_value: "[URL]"
+      keep_original_score: false
+      validate_anonymization: true
+      
+    segmentation:
+      segmentation_strategy: "sentence"
+      sentence_segmentation:
+        use_spacy: true
+        spacy_model: "zh_core_web_sm"
+        custom_patterns: ["[。！？]", "[.!?]"]
+        min_sentence_length: 5
+        max_sentence_length: 1000
+      paragraph_segmentation:
+        paragraph_separators: ["\n\n", "\r\n\r\n"]
+        min_paragraph_length: 10
+        max_paragraph_length: 5000
+      fixed_length_segmentation:
+        chunk_size: 500
+        overlap_size: 50
+        respect_word_boundaries: true
+      post_processing:
+        remove_empty_segments: true
+        strip_whitespace: true
+        min_segment_length: 1
+        max_segment_length: 10000
+      parallel_processing: false
+      enable_cache: true
+      cache_size: 500
+    
+    # 识别器配置
+    recognizers:
+      pattern_recognizer:
+        enabled: true
+        id_card: true
+        phone_number: true
+        bank_card: true
+        car_plate: true
+        url: true
+      llm_recognizer:
+        enabled: true  # 启用LLM识别器
+        client:
+          type: "gemini"  # 使用Gemini客户端
+          model_name_or_path: "gemini-2.5-flash-preview-05-20"  # 使用最新的Gemini模型
+          temperatures: 0  # 降低温度以获得更确定性的输出
+          max_tokens: 20000  # 设置最大token数
+          top_p: 0.9
+          top_k: 50
+          # api_key: "YOUR_API_KEY"  # 请替换为您的API密钥或通过环境变量GEMINI_API_KEY设置
+        prompts:
+          prompt_template_path: "config/prompt_template.yaml"
+        parsers:
+          example: "default"
