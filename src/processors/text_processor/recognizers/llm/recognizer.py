@@ -34,8 +34,7 @@ class LLMRecognizer(EntityRecognizer):
     
     def __init__(
         self,
-        config: Optional[LLMRecognizerConfig] = None,
-        supported_entities: Optional[List[str]] = None,
+        config: LLMRecognizerConfig,
         **kwargs
     ):
         """
@@ -43,24 +42,13 @@ class LLMRecognizer(EntityRecognizer):
         
         Args:
             config: LLM识别器配置
-            supported_entities: 支持识别的实体类型列表
             **kwargs: 其他参数
         """
-        if not config:
-            config = LLMRecognizerConfig()
-
         self.config = config
-        
-        # 默认支持的实体类型
-        if not supported_entities:
-            supported_entities = [
-                "PERSON", "ID_CARD", "PHONE_NUMBER", "EMAIL_ADDRESS", 
-                "CREDIT_CARD", "BANK_ACCOUNT", "ADDRESS", "LOCATION"
-            ]
-                    
+
         # 初始化LLM客户端
         self.llm_client = create_llm_client(config.client)
-        
+
         # 加载提示词模板
         self.prompt_loader = PromptLoader(config.prompts.prompt_template_path)
         
@@ -69,7 +57,7 @@ class LLMRecognizer(EntityRecognizer):
         
         # 初始化父类
         super().__init__(
-            supported_entities=supported_entities,
+            supported_entities=self.config.supported_entities,
             supported_language="zh",
             name="LLMEntityRecognizer"
         )
@@ -115,7 +103,6 @@ class LLMRecognizer(EntityRecognizer):
         
         try:
             # 调用LLM
-            print(prompt)
             llm_response = self.llm_client.generate(prompt)
             
             # 解析LLM响应

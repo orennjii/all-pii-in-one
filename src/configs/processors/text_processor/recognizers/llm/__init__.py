@@ -16,6 +16,14 @@ from src.configs.processors.text_processor.recognizers.llm.parsers_config import
 class LLMRecognizerConfig(BaseConfig):
     """LLM识别器配置"""
     enabled: bool = Field(default=True, description="是否启用LLM识别器")
+    supported_entities: list[str] = Field(
+        default_factory=lambda: [
+            "PERSON", "ID_CARD", "PHONE_NUMBER", "EMAIL_ADDRESS",
+            "BANK_ACCOUNT", "CREDIT_CARD", "CAR_PLATE_NUMBER",
+            "URL", "IP_ADDRESS", "MAC_ADDRESS"
+        ],
+        description="支持的实体类型列表"
+    )
     select_prompt_template_name: str = Field(
         default="pii_detection",
         description="选择的提示词模板名称，默认为'pii_detection'"
