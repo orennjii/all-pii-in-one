@@ -15,7 +15,7 @@ from src.configs.processors.text_processor.recognizers.llm.parsers_config import
 
 class LLMRecognizerConfig(BaseConfig):
     """LLM识别器配置"""
-    enabled: bool = Field(default=False, description="是否启用LLM识别器")
+    enabled: bool = Field(default=True, description="是否启用LLM识别器")
     select_prompt_template_name: str = Field(
         default="pii_detection",
         description="选择的提示词模板名称，默认为'pii_detection'"

@@ -14,8 +14,8 @@ from .llm import LLMRecognizerConfig
 
 class RecognizersConfig(BaseConfig):
     """识别器配置"""
-    pattern: PatternRecognizerConfig = Field(default_factory=PatternRecognizerConfig, description="模式识别器配置")
-    llm: LLMRecognizerConfig = Field(default_factory=LLMRecognizerConfig, description="LLM识别器配置")
+    pattern_recognizer: PatternRecognizerConfig = Field(default_factory=PatternRecognizerConfig, description="模式识别器配置")
+    llm_recognizer: LLMRecognizerConfig = Field(default_factory=LLMRecognizerConfig, description="LLM识别器配置")
 
 __all__ = [
     "RecognizersConfig",
