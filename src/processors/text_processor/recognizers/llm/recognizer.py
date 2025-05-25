@@ -115,6 +115,7 @@ class LLMRecognizer(EntityRecognizer):
         
         try:
             # 调用LLM
+            print(prompt)
             llm_response = self.llm_client.generate(prompt)
             
             # 解析LLM响应
@@ -123,7 +124,7 @@ class LLMRecognizer(EntityRecognizer):
             # 转换为RecognizerResult
             results = self.convert_to_recognizer_results(llm_response_obj.entities)
             
-            logger.debug(f"LLM识别结果: 找到{len(results)}个实体")
+            logger.info(f"LLM识别结果: 找到{len(results)}个实体")
             return results
             
         except Exception as e:

@@ -19,6 +19,7 @@ from typing import List, Dict, Any, Optional
 
 from presidio_analyzer import AnalyzerEngine, RecognizerRegistry
 from presidio_analyzer.nlp_engine import NlpEngineProvider
+from presidio_anonymizer import AnonymizerEngine
 
 from src.commons.utils import find_project_root
 from src.configs import AppConfig
@@ -43,36 +44,16 @@ def test_llm_recognizer():
     # 从app_config.yaml加载配置
     config_path = project_root / "config" / "app_config.yaml"
     app_config = AppConfig.load_from_yaml(str(config_path))
+    print(f"配置路径: {config_path}")
+    print(f"加载配置: {app_config}")
     
     # 获取LLM配置
-    llm_config = app_config.text_processor.recognizers.llm
+    llm_config = app_config.text_processor.recognizers.llm_recognizer
     
     # 如果LLM识别器未启用，则退出
     if not llm_config.enabled:
         logger.warning("LLM识别器未启用，请在app_config.yaml中启用")
         return
-    
-    # 创建LLM客户端，显式指定类型为小写的"gemini"
-    client_config = LLMClientConfig(
-        type="gemini",
-        api_key=llm_config.client.api_key,
-        model=llm_config.client.model,
-        timeout=llm_config.client.timeout,
-        max_retries=llm_config.client.max_retries
-    )
-    llm_client = create_llm_client(client_config)
-    
-    # 创建解析器配置
-    from src.configs.processors.text_processor.recognizers.llm.parsers_config import LLMParsersConfig
-    parser_config = LLMParsersConfig(
-        parser_type="gemini",
-        json_strict_mode=False,
-        min_confidence=0.8,
-        gemini_response_formats=["json", "text"]
-    )
-    
-    # 创建LLM解析器
-    parser = GeminiParser(config=parser_config)
     
     # 支持的实体类型
     supported_entities = [
@@ -85,8 +66,6 @@ def test_llm_recognizer():
     llm_recognizer = LLMRecognizer(
         config=llm_config,
         supported_entities=supported_entities,
-        llm_client=llm_client,
-        parser=parser
     )
     
     # 创建NLP引擎
@@ -110,11 +89,7 @@ def test_llm_recognizer():
     )
     
     # 测试文本
-    test_text = """
-    张三的手机号是13912345678，他的邮箱是zhangsan@example.com。
-    他住在北京市海淀区中关村南大街5号，身份证号码是110101199001011234。
-    他的信用卡号是6222020111122223333，银行账号是6225881234567890。
-    """
+    test_text = "张三的手机号是13912345678,他的邮箱是zhangsan@example.com。他住在北京市海淀区中关村南大街5号，身份证号码是110101199001011234。他的信用卡号是6222020111122223333，银行账号是6225881234567890。"
     
     # 分析文本
     logger.info("开始分析文本中的个人隐私信息...")
@@ -134,8 +109,14 @@ def test_llm_recognizer():
     else:
         logger.info("未找到任何个人隐私信息")
     
-    return results
+    anonymizer_engine = AnonymizerEngine()
+
+    anonymized_text = anonymizer_engine.anonymize(
+        text=test_text,
+        analyzer_results=results,
+    )
+
+    logger.info(f"文本匿名化结果: {anonymized_text}")
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
     test_llm_recognizer()

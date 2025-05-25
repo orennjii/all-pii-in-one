@@ -200,7 +200,7 @@ def _register_builtin_parsers() -> None:
     try:
         # 注册Gemini解析器
         from .gemini_parser import GeminiParser
-        register_parser("gemini", GeminiParser, ["google-gemini", "google"])
+        register_parser("gemini", GeminiParser, ["google-gemini", "google", "Gemini"])
         
         # 可以在这里注册其他解析器
         # register_parser("openai", OpenAIParser, ["gpt", "chatgpt"])
