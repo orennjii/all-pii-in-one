@@ -133,7 +133,7 @@ class GeminiClient(BaseLLMClient):
             if response_text is None:
                 logger.error("Gemini生成的文本为空")
                 raise RuntimeError("LLM生成的文本为空")
-            logger.debug(f"Gemini生成的文本: {response_text}")
+            logger.info(f"Gemini生成的文本: {response_text}")
 
             # 将结果存入缓存
             if self.cache and not kwargs.get("skip_cache", False):
