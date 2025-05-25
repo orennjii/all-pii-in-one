@@ -48,7 +48,7 @@ def test_llm_recognizer():
     print(f"加载配置: {app_config}")
     
     # 获取LLM配置
-    llm_config = app_config.text_processor.recognizers.llm_recognizer
+    llm_config = app_config.processor.text_processor.recognizers.llm_recognizer
     
     # 如果LLM识别器未启用，则退出
     if not llm_config.enabled:
