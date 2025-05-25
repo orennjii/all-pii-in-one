@@ -5,6 +5,20 @@
 处理器配置模块
 """
 
+from pydantic import Field
+
+from src.configs.base_config import BaseConfig
 from .text_processor import TextProcessorConfig
 
-# 在这里可以导出其他处理器配置，如图像处理器、音频处理器等
+class ProcessorsConfig(BaseConfig):
+    """处理器配置"""
+    
+    text_processor: TextProcessorConfig = Field(
+        default_factory=TextProcessorConfig, 
+        description="文本处理器配置"
+    )
+
+__all__ = [
+    "ProcessorsConfig",
+    "TextProcessorConfig"
+]

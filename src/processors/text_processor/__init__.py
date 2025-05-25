@@ -10,6 +10,18 @@
 用于识别、提取和匿名化中文文本中的敏感个人信息。
 """
 
+# 核心模块
+from .core import (
+    PresidioAnalyzer,
+    PresidioAnonymizer,
+    TextSegmenter,
+    TextSegment
+)
+
+# 主处理器
+from .processor import TextProcessor, ProcessingResult
+
+# 注册函数和识别器
 from .utils.registry import register_chinese_pattern_recognizers, get_all_chinese_pattern_recognizers
 from .recognizers.pattern import (
     BankCardRecognizer,
@@ -19,22 +31,16 @@ from .recognizers.pattern import (
     URLRecognizer,
 )
 from .recognizers.llm import LLMRecognizer
-from .text_processor import TextProcessor
-from .text_pii_detector import TextPIIDetector, PresidioPIIDetector, PatternPIIDetector, LLMPIIDetector
-from .text_segmenter import TextSegmenter
-from .text_anonymizer_engine import TextAnonymizerEngine
 
 __all__ = [
-    # 主要类
-    "TextProcessor",
-    
-    # 组件类
-    "TextPIIDetector",
-    "PresidioPIIDetector",
-    "PatternPIIDetector",
-    "LLMPIIDetector",
+    # 核心模块
+    "PresidioAnalyzer",
+    "PresidioAnonymizer", 
     "TextSegmenter",
-    "TextAnonymizerEngine",
+    "TextSegment",
+    
+    # 主处理器
+    "TextProcessor", "ProcessingResult",
     
     # 注册函数
     "register_chinese_pattern_recognizers",

@@ -8,15 +8,22 @@
 from pydantic import Field
 
 from src.configs.base_config import BaseConfig
+from src.configs.processors.text_processor.analyzer_config import AnalyzerConfig
+from src.configs.processors.text_processor.anonymizer_config import AnonymizerConfig
+from src.configs.processors.text_processor.segmentation_config import SegmentationConfig
 from src.configs.processors.text_processor.recognizers import RecognizersConfig
-
 
 class TextProcessorConfig(BaseConfig):
     """文本处理器配置"""
     recognizers: RecognizersConfig = Field(default_factory=RecognizersConfig, description="识别器配置")
-    # 可以在这里添加其他文本处理器相关的配置
+    analyzer: AnalyzerConfig = Field(default_factory=AnalyzerConfig, description="分析器配置")
+    anonymizer: AnonymizerConfig = Field(default_factory=AnonymizerConfig, description="匿名化配置")
+    segmentation: SegmentationConfig = Field(default_factory=SegmentationConfig, description="分词配置")
 
 __all__ = [
     "RecognizersConfig",
+    "AnalyzerConfig",
+    "AnonymizerConfig",
+    "SegmentationConfig",
     "TextProcessorConfig"
 ]
