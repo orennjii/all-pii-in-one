@@ -4,14 +4,6 @@
 """
 
 from .base_config import ConfigType, BaseConfig
-from .audio_config import (
-    AudioConfig,
-    AudioDiarizationConfig,
-    AudioVoiceConversionConfig,
-    AudioSupportedFormatsConfig,
-)
-
-# 导入新的配置结构
 from .general import GeneralConfig
 from .device import DeviceConfig
 from .processors import ProcessorsConfig
@@ -43,10 +35,6 @@ class AppConfig(BaseConfig):
 __all__ = [
     "ConfigType",
     "BaseConfig",
-    "AudioConfig",
-    "AudioDiarizationConfig",
-    "AudioVoiceConversionConfig",
-    "AudioSupportedFormatsConfig",
     
     # 新的配置结构
     "GeneralConfig",
