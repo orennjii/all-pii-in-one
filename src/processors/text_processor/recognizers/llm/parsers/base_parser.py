@@ -105,7 +105,7 @@ class BaseLLMParser(ABC):
                         f"实体位置无效: {entity.entity_type} "
                         f"({entity.start}, {entity.end}), 文本长度: {len(original_text)}"
                     )
-                    continue
+                    entity.end = min(entity.end, len(original_text))
                 
                 # 验证实体值是否与位置匹配
                 extracted_value = original_text[entity.start:entity.end]

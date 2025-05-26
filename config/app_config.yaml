@@ -40,8 +40,14 @@ processor:
       
     anonymizer:
       presidio_enabled: true
-      default_anonymization_strategy: "replace"
-      entity_anonymization_config:
+      anonymization_strategy: "replace"  # 统一的匿名化策略
+      operator_params:  # 统一的操作符参数
+        new_value: "[REDACTED]"
+        masking_char: "*"
+        chars_to_mask: -1
+        from_end: true
+        hash_type: "sha256"
+      entity_anonymization_config:  # 保留原有的实体特定配置作为备选
         PERSON:
           operator: "replace"
           params:
@@ -91,6 +97,9 @@ processor:
         chunk_size: 500
         overlap_size: 50
         respect_word_boundaries: true
+      custom_segmentation:  # 添加自定义分割配置
+        custom_patterns: []
+        custom_function: null
       post_processing:
         remove_empty_segments: true
         strip_whitespace: true
@@ -114,7 +123,7 @@ processor:
         client:
           type: "gemini"  # 使用Gemini客户端
           model_name_or_path: "gemini-2.5-flash-preview-05-20"  # 使用最新的Gemini模型
-          temperatures: 0  # 降低温度以获得更确定性的输出
+          temperature: 0  # 修正参数名（从temperatures改为temperature）
           max_tokens: 20000  # 设置最大token数
           top_p: 0.9
           top_k: 50

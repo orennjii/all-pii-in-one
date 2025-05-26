@@ -109,11 +109,11 @@ class PresidioAnalyzer():
         try:
             # 注册各种模式识别器
             recognizers = [
-                BankCardRecognizer(),
-                CarPlateNumberRecognizer(),
-                IDCardRecognizer(),
-                PhoneNumberRecognizer(),
-                URLRecognizer()
+                # BankCardRecognizer(),
+                # CarPlateNumberRecognizer(),
+                # IDCardRecognizer(),
+                # PhoneNumberRecognizer(),
+                # URLRecognizer()
             ]
             
             for recognizer in recognizers:
