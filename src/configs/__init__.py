@@ -15,6 +15,7 @@ from .audio_config import (
 from .general import GeneralConfig
 from .device import DeviceConfig
 from .processors import ProcessorsConfig
+from .processors.audio_processor import AudioProcessorConfig
 from .processors.text_processor import TextProcessorConfig
 from .processors.text_processor.recognizers import (
     RecognizersConfig,
@@ -50,6 +51,8 @@ __all__ = [
     # 新的配置结构
     "GeneralConfig",
     "DeviceConfig",
+    "ProcessorsConfig",
+    "AudioProcessorConfig",
     "TextProcessorConfig",
     "AppConfig"
 ]
