@@ -6,18 +6,14 @@ TextProcessor 测试模块
 
 该模块演示如何从app_config.yaml加载配置并使用TextProcessor类处理文本中的个人隐私信息
 可以通过以下方式运行:
-python test/test_text_processor.py
-或
-PYTHONPATH=. python -m test.test_text_processor
+PYTHONPATH=. python test/test_text_processor.py
 """
 
 import os
 import sys
-import logging
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 
-from src.commons.utils import find_project_root
 from src.configs import AppConfig
 from src.processors.text_processor import TextProcessor
 from src.commons import get_module_logger, find_project_root
@@ -45,7 +41,21 @@ def test_text_processor():
     text_processor = TextProcessor(config=text_processor_config)
     
     # 测试文本
-    test_text = "张三的手机号是13912345678,他的邮箱是zhangsan@example.com。他住在北京市海淀区中关村南大街5号，身份证号码是110101199001011234。他的信用卡号是6222020111122223333，银行账号是6225881234567890。"
+    test_text = """
+尊敬的客服团队：
+
+你们好，我叫李明轩，想咨询一下我的订单 #TS20250527A88G 的最新发货状态。这个订单是我上周二下午通过你们的手机应用下的，当时预估3天内发货，但现在还没有收到任何更新。
+
+我的注册手机号是 138-1088-6688，注册邮箱是 mingxuan.li.test@emailservice.cn。如果需要核实身份，我的会员卡号是 VIP9876543210。
+
+麻烦你们帮忙查一下，看看包裹具体到哪里了。如果已经发出了，希望能提供一下快递单号。我的收货地址是：北京市海淀区中关村南大街28号院3号楼B座1101室，邮编100081。
+
+另外，我记得当时购买这款“智能空气净化器Pro”时，客服代表王小姐（工号大概是A073）提到，如果我是1990年6月15日之前出生的，可以享受一个额外的老客户折扣。我的出生日期是1988年10月26日，不知道这个折扣是否已经应用到订单里了？如果方便的话，也请一并核实。
+
+非常感谢！期待你们的回复。
+
+祝好
+"""
     
     logger.info("开始使用TextProcessor处理文本...")
     
@@ -79,94 +89,6 @@ def test_text_processor():
                 entity_value = segment_text[result.start:result.end]
                 logger.info(f"  类型: {result.entity_type}, 值: {entity_value}, "
                           f"位置: {result.start}-{result.end}, 置信度: {result.score:.2f}")
-    
-    # 测试仅分析功能
-    logger.info("\n" + "=" * 50)
-    logger.info("测试2: 仅分析功能")
-    logger.info("=" * 50)
-    
-    analysis_results = text_processor.analyze_only(
-        text=test_text,
-        language='zh'
-    )
-    
-    logger.info(f"仅分析模式检测到 {len(analysis_results)} 个PII实体:")
-    for result in analysis_results:
-        entity_value = test_text[result.start:result.end]
-        logger.info(f"  类型: {result.entity_type}, 值: {entity_value}, "
-                  f"位置: {result.start}-{result.end}, 置信度: {result.score:.2f}")
-    
-    # 测试仅匿名化功能（使用前面的分析结果）
-    logger.info("\n" + "=" * 50)
-    logger.info("测试3: 仅匿名化功能")
-    logger.info("=" * 50)
-    
-    anonymize_result = text_processor.anonymize_only(
-        text=test_text,
-        analyzer_results=analysis_results
-    )
-    
-    logger.info(f"仅匿名化模式结果: {anonymize_result.text}")
-    logger.info(f"匿名化操作数: {len(anonymize_result.items)}")
-    
-    # 测试文本分割功能
-    logger.info("\n" + "=" * 50)
-    logger.info("测试4: 文本分割功能")
-    logger.info("=" * 50)
-    
-    segments = text_processor.segment_only(test_text)
-    logger.info(f"文本分割成 {len(segments)} 个段落:")
-    for i, segment in enumerate(segments):
-        logger.info(f"  段落 {i+1}: {segment.text[:50]}{'...' if len(segment.text) > 50 else ''}")
-    
-    # 测试获取支持的实体类型
-    logger.info("\n" + "=" * 50)
-    logger.info("测试5: 获取支持的功能")
-    logger.info("=" * 50)
-    
-    supported_entities = text_processor.get_supported_entities()
-    logger.info(f"支持的实体类型: {supported_entities}")
-    
-    supported_operators = text_processor.get_supported_operators()
-    logger.info(f"支持的匿名化操作符: {supported_operators}")
-    
-    # 测试带分割的完整处理
-    logger.info("\n" + "=" * 50)
-    logger.info("测试6: 带分割的完整处理")
-    logger.info("=" * 50)
-    
-    # 使用较长的测试文本，适合分割
-    long_test_text = """
-    张三是一名软件工程师，他的个人信息如下。
-    
-    联系方式：手机号13912345678，邮箱zhangsan@example.com。
-    
-    住址：北京市海淀区中关村南大街5号。
-    
-    证件信息：身份证号码110101199001011234。
-    
-    金融信息：信用卡号6222020111122223333，银行账号6225881234567890。
-    """
-    
-    segmented_result = text_processor.process(
-        text=long_test_text,
-        enable_segmentation=True,   # 启用分割
-        enable_analysis=True,       # 启用分析
-        enable_anonymization=True,  # 启用匿名化
-        language='zh'
-    )
-    
-    logger.info(f"分割后的段落数: {len(segmented_result.segments)}")
-    logger.info(f"匿名化后的完整文本: {segmented_result.anonymized_text}")
-    
-    # 显示每个段落的处理结果
-    for i, (segment, segment_analysis, segment_anonymized) in enumerate(
-        zip(segmented_result.segments, segmented_result.analysis_results, segmented_result.anonymized_segments)
-    ):
-        logger.info(f"\n段落 {i+1}:")
-        logger.info(f"  原始: {segment.text.strip()}")
-        logger.info(f"  匿名化: {segment_anonymized.text.strip()}")
-        logger.info(f"  检测到实体数: {len(segment_analysis)}")
     
     logger.info("\n" + "=" * 50)
     logger.info("TextProcessor 测试完成!")
