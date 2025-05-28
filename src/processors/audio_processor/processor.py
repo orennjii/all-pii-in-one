@@ -128,6 +128,7 @@ class AudioProcessor:
     def process(
         self,
         audio_path: Union[str, Path],
+        enable_diarization: bool = False,
         output_dir: Optional[Union[str, Path]] = None,
         **kwargs
     ) -> AudioProcessingResult:
@@ -160,14 +161,16 @@ class AudioProcessor:
             transcription_result = self._transcribe_audio(audio_path, **kwargs)
             
             # 步骤2: 说话人分离（可选）
-            diarization_result = self._diarize_audio(audio_path, **kwargs)
-            
-            # 步骤3: PII检测（可选）
+            diarization_result: Optional[DiarizationResult] = None
+            if enable_diarization and self._diarizer is not None:
+                diarization_result = self._diarize_audio(audio_path, **kwargs)
+
+            # 步骤3: PII检测
             pii_detection_result = self._detect_pii(
                 transcription_result, diarization_result, **kwargs
             )
-            
-            # 步骤4: 音频匿名化（可选）
+
+            # 步骤4: 音频匿名化
             anonymized_audio_path = None
             if pii_detection_result and pii_detection_result.pii_entities:
                 anonymized_audio_path = self._anonymize_audio_pii(
