@@ -364,14 +364,3 @@ def create_text_tab() -> gr.Blocks:
     """创建文本处理标签页"""
     tab = TextProcessorTab()
     return tab.create_interface()
-
-
-if __name__ == "__main__":
-    # 独立运行测试
-    demo = create_text_tab()
-    demo.launch(
-        server_name="0.0.0.0",
-        server_port=7861,
-        share=False,
-        debug=True
-    )

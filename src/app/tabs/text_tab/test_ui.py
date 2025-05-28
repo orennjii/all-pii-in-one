@@ -5,6 +5,7 @@
 文本处理 UI 测试脚本
 
 测试文本处理 Gradio UI 的功能
+PYTHONPATH=. python src/app/tabs/text_tab/test_ui.py
 """
 
 import sys
