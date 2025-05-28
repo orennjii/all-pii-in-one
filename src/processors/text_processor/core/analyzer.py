@@ -10,7 +10,7 @@ PII分析器模块
 from typing import List, Dict, Any, Optional, Union
 from functools import lru_cache
 
-from presidio_analyzer import AnalyzerEngine, RecognizerResult
+from presidio_analyzer import AnalyzerEngine, RecognizerResult, RecognizerRegistry
 from presidio_analyzer.nlp_engine import NlpEngineProvider, NlpEngine
 
 from src.commons.loggers import get_module_logger
@@ -45,6 +45,7 @@ class PresidioAnalyzer():
         self.config = config
         self._analyzer: AnalyzerEngine
         self._nlp_engine: NlpEngine
+        self._registry: RecognizerRegistry
 
         self._setup_analyzer()
     
@@ -53,15 +54,14 @@ class PresidioAnalyzer():
         try:
             # 设置NLP引擎
             self._setup_nlp_engine()
+            self._setup_registry()
             
             # 创建分析器引擎
             self._analyzer = AnalyzerEngine(
+                registry=self._registry,
                 nlp_engine=self._nlp_engine,
                 supported_languages=self.config.analyzer.supported_languages
             )
-            
-            # 注册自定义识别器
-            self._register_custom_recognizers()
             
             logger.info("Presidio analyzer initialized successfully")
             
@@ -77,7 +77,6 @@ class PresidioAnalyzer():
                 "nlp_engine_name": "spacy",
                 "models": [
                     {"lang_code": "zh", "model_name": "zh_core_web_sm"},
-                    {"lang_code": "en", "model_name": "en_core_web_sm"}
                 ]
             }
             
@@ -89,6 +88,21 @@ class PresidioAnalyzer():
             # 使用默认配置
             provider = NlpEngineProvider()
             self._nlp_engine = provider.create_engine()
+    
+    def _setup_registry(self) -> None:
+        """设置识别器注册表"""
+        try:
+            # 创建识别器注册表
+            self._registry = RecognizerRegistry(
+                supported_languages=self.config.analyzer.supported_languages
+            )
+            
+            # 添加内置识别器
+            self._register_custom_recognizers()
+            
+        except Exception as e:
+            logger.error(f"Failed to setup recognizer registry: {e}")
+            raise
     
     def _register_custom_recognizers(self) -> None:
         """注册自定义识别器"""
@@ -117,7 +131,7 @@ class PresidioAnalyzer():
             ]
             
             for recognizer in recognizers:
-                self._analyzer.registry.add_recognizer(recognizer)
+                self._registry.add_recognizer(recognizer)
             
             logger.info(f"Registered {len(recognizers)} pattern recognizers")
             
@@ -129,8 +143,9 @@ class PresidioAnalyzer():
         try:
             llm_recognizer = LLMRecognizer(
                 config=self.config.recognizers.llm_recognizer,
+                entitites=self.config.supported_entities,
             )
-            self._analyzer.registry.add_recognizer(llm_recognizer)
+            self._registry.add_recognizer(llm_recognizer)
             
         except Exception as e:
             logger.error(f"Failed to register LLM recognizers: {e}")
@@ -166,7 +181,7 @@ class PresidioAnalyzer():
 
         # 应用实体过滤
         if entities is None:
-            entities = self.config.analyzer.allowed_entities
+            entities = self.config.supported_entities
 
         try:
             # 执行分析

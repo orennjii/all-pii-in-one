@@ -35,6 +35,7 @@ class LLMRecognizer(EntityRecognizer):
     def __init__(
         self,
         config: LLMRecognizerConfig,
+        entities: Optional[List[str]] = None,
         **kwargs
     ):
         """
@@ -57,12 +58,12 @@ class LLMRecognizer(EntityRecognizer):
         
         # 初始化父类
         super().__init__(
-            supported_entities=self.config.supported_entities,
+            supported_entities=entities or config.supported_entities,
             supported_language="zh",
             name="LLMEntityRecognizer"
         )
         
-        logger.info(f"LLM实体识别器已初始化 (使用{self.llm_client.__class__.__name__})")
+        logger.info(f"LLM实体识别器已初始化 (使用{self.llm_client.__class__.__name__}), 支持实体: {self.supported_entities}")
         
     def load(self) -> None:
         """加载识别器所需资源"""

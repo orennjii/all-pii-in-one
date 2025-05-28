@@ -94,18 +94,44 @@ class BaseLLMParser(ABC):
             List[EntityMatch]: 验证通过的实体列表
         """
         validated_entities = []
+        text_length = len(original_text)
         
         for entity in entities:
             try:
-                # 检查位置边界
+                # 首先检查位置是否完全无效（超出文本范围）
+                if entity.start >= text_length:
+                    logger.warning(
+                        f"实体起始位置完全超出文本范围: {entity.entity_type} "
+                        f"start={entity.start} >= text_length={text_length}, 尝试文本搜索"
+                    )
+                    # 尝试在原文中搜索实体值
+                    corrected_entity = self._search_entity_in_text(entity, original_text)
+                    if corrected_entity:
+                        validated_entities.append(corrected_entity)
+                    else:
+                        logger.warning(
+                            f"无法在文本中找到实体值 '{entity.value}', "
+                            f"跳过实体 {entity.entity_type}"
+                        )
+                    continue
+                
+                # 检查其他位置边界问题
                 if (entity.start < 0 or 
-                    entity.end > len(original_text) or 
+                    entity.end > text_length or 
                     entity.start >= entity.end):
                     logger.warning(
                         f"实体位置无效: {entity.entity_type} "
-                        f"({entity.start}, {entity.end}), 文本长度: {len(original_text)}"
+                        f"({entity.start}, {entity.end}), 文本长度: {text_length}"
                     )
-                    entity.end = min(entity.end, len(original_text))
+                    # 修正 end 位置
+                    if entity.end > text_length:
+                        entity.end = text_length
+                    # 如果修正后位置仍然无效，尝试搜索
+                    if entity.start >= entity.end:
+                        corrected_entity = self._search_entity_in_text(entity, original_text)
+                        if corrected_entity:
+                            validated_entities.append(corrected_entity)
+                        continue
                 
                 # 验证实体值是否与位置匹配
                 extracted_value = original_text[entity.start:entity.end]
@@ -213,6 +239,104 @@ class BaseLLMParser(ABC):
         if fuzzy_entity:
             return fuzzy_entity
         
+        return None
+    
+    def _search_entity_in_text(
+        self, 
+        entity: EntityMatch, 
+        original_text: str
+    ) -> Optional[EntityMatch]:
+        """
+        在原文中搜索实体值，返回修正后的实体
+        
+        这个方法用于处理LLM返回的位置信息完全无效的情况。
+        它会在整个文本中搜索实体值，并返回正确的位置信息。
+        
+        Args:
+            entity: 原始实体
+            original_text: 原始文本
+            
+        Returns:
+            Optional[EntityMatch]: 修正后的实体，如果无法找到则返回None
+        """
+        if not entity.value or not entity.value.strip():
+            return None
+            
+        search_value = entity.value.strip()
+        
+        # 策略1：精确匹配搜索
+        start_pos = original_text.find(search_value)
+        if start_pos != -1:
+            end_pos = start_pos + len(search_value)
+            logger.info(
+                f"文本搜索成功: {entity.entity_type} '{search_value}' "
+                f"找到于位置 ({start_pos}, {end_pos})"
+            )
+            
+            return EntityMatch(
+                entity_type=entity.entity_type,
+                value=search_value,
+                start=start_pos,
+                end=end_pos,
+                confidence=entity.confidence * 0.9,  # 略微降低置信度，因为是通过搜索修正的
+                is_inferred=True,  # 标记为推断得出
+                notes=f"Position corrected by text search (original: {entity.start}-{entity.end})",
+                metadata=entity.metadata
+            )
+        
+        # 策略2：大小写不敏感搜索
+        start_pos = original_text.lower().find(search_value.lower())
+        if start_pos != -1:
+            end_pos = start_pos + len(search_value)
+            actual_value = original_text[start_pos:end_pos]
+            logger.info(
+                f"大小写不敏感搜索成功: {entity.entity_type} '{search_value}' "
+                f"找到 '{actual_value}' 于位置 ({start_pos}, {end_pos})"
+            )
+            
+            return EntityMatch(
+                entity_type=entity.entity_type,
+                value=actual_value,  # 使用实际找到的值
+                start=start_pos,
+                end=end_pos,
+                confidence=entity.confidence * 0.8,  # 更多降低置信度
+                is_inferred=True,
+                notes=f"Position corrected by case-insensitive search (original: {entity.start}-{entity.end})",
+                metadata=entity.metadata
+            )
+        
+        # 策略3：部分匹配搜索（去除标点符号和空格）
+        import re
+        search_clean = re.sub(r'[^\w]', '', search_value.lower())
+        if len(search_clean) >= 3:  # 只对较长的字符串进行模糊匹配
+            text_clean = re.sub(r'[^\w]', '', original_text.lower())
+            clean_pos = text_clean.find(search_clean)
+            if clean_pos != -1:
+                # 在清理后的文本中找到了，需要映射回原文本位置
+                # 这是一个简化的实现，在原文附近区域搜索
+                for i in range(max(0, len(original_text) - len(search_value))):
+                    candidate = original_text[i:i + len(search_value)]
+                    candidate_clean = re.sub(r'[^\w]', '', candidate.lower())
+                    if candidate_clean == search_clean:
+                        logger.info(
+                            f"模糊匹配搜索成功: {entity.entity_type} '{search_value}' "
+                            f"找到 '{candidate}' 于位置 ({i}, {i + len(candidate)})"
+                        )
+                        
+                        return EntityMatch(
+                            entity_type=entity.entity_type,
+                            value=candidate,
+                            start=i,
+                            end=i + len(candidate),
+                            confidence=entity.confidence * 0.7,  # 显著降低置信度
+                            is_inferred=True,
+                            notes=f"Position corrected by fuzzy search (original: {entity.start}-{entity.end})",
+                            metadata=entity.metadata
+                        )
+        
+        logger.warning(
+            f"无法在文本中找到实体值: {entity.entity_type} '{search_value}'"
+        )
         return None
     
     def _fuzzy_find_entity(
