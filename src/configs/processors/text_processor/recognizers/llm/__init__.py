@@ -18,9 +18,7 @@ class LLMRecognizerConfig(BaseConfig):
     enabled: bool = Field(default=True, description="是否启用LLM识别器")
     supported_entities: list[str] = Field(
         default_factory=lambda: [
-            "PERSON", "ID_CARD", "PHONE_NUMBER", "EMAIL_ADDRESS",
-            "BANK_ACCOUNT", "CREDIT_CARD", "CAR_PLATE_NUMBER",
-            "URL", "IP_ADDRESS", "MAC_ADDRESS"
+            "ALL"
         ],
         description="支持的实体类型列表"
     )

@@ -14,19 +14,17 @@ from pydantic import Field
 from src.commons import find_project_root
 from src.configs.base_config import BaseConfig
 
-
-class AudioSupportedFormatsConfig(BaseConfig):
-    """支持的音频格式配置"""
-    
-    file_types: List[str] = Field(
-        default=[".wav", ".mp3", ".flac", ".ogg"],
-        description="支持的音频文件类型扩展名"
-    )
-
-
 class AudioDiarizationConfig(BaseConfig):
     """说话人分割配置"""
     
+    enabled: bool = Field(
+        default=True,
+        description="是否启用说话人分割"
+    )
+    auth_token: str = Field(
+        default="",
+        description="Hugging Face认证令牌，用于访问私有模型"
+    )
     model: str = Field(
         default="pyannote/speaker-diarization-3.1",
         description="使用的说话人分割模型"
@@ -57,6 +55,120 @@ class AudioDiarizationConfig(BaseConfig):
     )
 
 
+class AudioTranscriptionConfig(BaseConfig):
+    """语音转录配置"""
+    
+    # 模型配置
+    model_size: str = Field(
+        default="base",
+        description="模型大小: tiny, base, small, medium, large-v1, large-v2, large-v3"
+    )
+    language: Optional[str] = Field(
+        default=None,
+        description="目标语言，None表示自动检测"
+    )
+    compute_type: str = Field(
+        default="float16",
+        description="计算精度: float16, float32, int8"
+    )
+    device: Optional[str] = Field(
+        default=None,
+        description="计算设备: cuda, cpu, auto"
+    )
+    
+    # WhisperX 特定配置
+    batch_size: int = Field(
+        default=16,
+        description="批处理大小"
+    )
+    chunk_size: int = Field(
+        default=30,
+        description="音频块大小（秒）"
+    )
+    
+    # 对齐配置
+    align_model: Optional[str] = Field(
+        default=None,
+        description="对齐模型名称，None表示自动选择"
+    )
+    interpolate_method: str = Field(
+        default="nearest",
+        description="插值方法"
+    )
+    return_char_alignments: bool = Field(
+        default=False,
+        description="是否返回字符级对齐"
+    )
+    
+    # 语音活动检测配置
+    vad_onset: float = Field(
+        default=0.500,
+        description="VAD起始阈值"
+    )
+    vad_offset: float = Field(
+        default=0.363,
+        description="VAD结束阈值"
+    )
+    vad_min_duration_on: float = Field(
+        default=0.0,
+        description="最小激活时长"
+    )
+    vad_min_duration_off: float = Field(
+        default=0.0,
+        description="最小静默时长"
+    )
+    
+    # 解码配置
+    temperature: float = Field(
+        default=0.0,
+        description="采样温度"
+    )
+    best_of: Optional[int] = Field(
+        default=None,
+        description="候选数量"
+    )
+    beam_size: Optional[int] = Field(
+        default=None,
+        description="束搜索大小"
+    )
+    patience: Optional[float] = Field(
+        default=None,
+        description="束搜索耐心值"
+    )
+    length_penalty: Optional[float] = Field(
+        default=None,
+        description="长度惩罚"
+    )
+    suppress_tokens: str = Field(
+        default="-1",
+        description="抑制的令牌"
+    )
+    initial_prompt: Optional[str] = Field(
+        default=None,
+        description="初始提示"
+    )
+    condition_on_previous_text: bool = Field(
+        default=True,
+        description="是否基于前文条件化"
+    )
+    fp16: bool = Field(
+        default=True,
+        description="是否使用半精度"
+    )
+    compression_ratio_threshold: float = Field(
+        default=2.4,
+        description="压缩率阈值"
+    )
+    logprob_threshold: float = Field(
+        default=-1.0,
+        description="对数概率阈值"
+    )
+    no_speech_threshold: float = Field(
+        default=0.6,
+        description="无语音阈值"
+    )
+
+
 class AudioVoiceConversionConfig(BaseConfig):
     """语音转换配置"""
     
@@ -84,45 +196,3 @@ class AudioVoiceConversionConfig(BaseConfig):
         default=0,
         description="默认音高调整值（半音）"
     )
-
-
-class AudioProcessorConfig(BaseConfig):
-    """音频处理器的总体配置"""
-    
-    supported_formats: AudioSupportedFormatsConfig = Field(
-        default_factory=AudioSupportedFormatsConfig,
-        description="支持的音频格式配置"
-    )
-    diarization: AudioDiarizationConfig = Field(
-        default_factory=AudioDiarizationConfig,
-        description="说话人分割配置"
-    )
-    voice_conversion: AudioVoiceConversionConfig = Field(
-        default_factory=AudioVoiceConversionConfig,
-        description="语音转换配置"
-    )
-    enable_pii_detection: bool = Field(
-        default=False,
-        description="是否启用PII检测"
-    )
-    reference_voices_dir: Optional[str] = Field(
-        default=None,
-        description="参考声音目录路径，如果为None将使用默认路径"
-    )
-    
-    def get_reference_voices_dir(self) -> str:
-        """获取参考声音目录路径，如果未配置则返回默认路径"""
-        if self.reference_voices_dir:
-            return self.reference_voices_dir
-        
-        # 使用默认路径：项目根目录/data/audio/reference_voices
-        project_root = find_project_root(Path(__file__))
-        return os.path.join(project_root, "data", "audio", "reference_voices")
-
-
-__all__ = [
-    "AudioSupportedFormatsConfig",
-    "AudioDiarizationConfig", 
-    "AudioVoiceConversionConfig",
-    "AudioProcessorConfig"
-]

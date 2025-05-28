@@ -8,7 +8,7 @@ def load_custom_model_from_hf(
     repo_id,
     model_filename="pytorch_model.bin",
     config_filename=None,
-    sub_dir: str = None,
+    sub_dir: str | None = None,
 ):
     current_dir = Path(__file__).resolve()
     checkpoint_dir = find_project_root(__file__) / "checkpoints"

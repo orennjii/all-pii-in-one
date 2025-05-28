@@ -11,7 +11,9 @@ from src.configs.base_config import BaseConfig
 from src.configs.processors.audio_processor.audio_configs import (
     AudioDiarizationConfig,
     AudioVoiceConversionConfig,
+    AudioTranscriptionConfig
 )
+from src.configs.processors.audio_processor.voice_anonymizer_config import VoiceAnonymizerConfig
 
 class AudioProcessorConfig(BaseConfig):
     """音频处理器配置"""
@@ -36,8 +38,18 @@ class AudioProcessorConfig(BaseConfig):
         description="说话人分割配置"
     )
 
+    transcription: AudioTranscriptionConfig = Field(
+        default_factory=AudioTranscriptionConfig,
+        description="语音转录配置"
+    )
+
     voice_conversion: AudioVoiceConversionConfig = Field(
         default_factory=AudioVoiceConversionConfig,
         description="语音转换配置"
+    )
+
+    voice_anonymizer: VoiceAnonymizerConfig = Field(
+        default_factory=VoiceAnonymizerConfig,
+        description="语音匿名化配置"
     )
 

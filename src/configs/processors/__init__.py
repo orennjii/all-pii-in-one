@@ -9,7 +9,7 @@ from pydantic import Field
 
 from src.configs.base_config import BaseConfig
 from .text_processor import TextProcessorConfig
-from .audio_processor.audio_configs import AudioProcessorConfig
+from .audio_processor import AudioProcessorConfig
 
 class ProcessorsConfig(BaseConfig):
     """处理器配置"""

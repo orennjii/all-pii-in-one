@@ -13,7 +13,7 @@ from src.configs.base_config import BaseConfig
 
 class LLMClientConfig(BaseConfig):
     """LLM客户端配置"""
-    type: str = Field(default="HuggingFace", description="LLM客户端类型")
+    type: str = Field(default="gemini", description="LLM客户端类型")
     model_name_or_path: str = Field(default="gemini-2.5-flash-preview-05-20", description="模型名称或路径")
     api_key: Optional[str] = Field(default=None, description="API密钥")
     endpoint: Optional[str] = Field(default=None, description="API端点")

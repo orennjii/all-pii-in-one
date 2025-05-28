@@ -6,20 +6,15 @@
 general:
   log_level: "INFO"  # 日志级别 (DEBUG, INFO, WARNING, ERROR, CRITICAL)
   temp_file_dir: "/tmp/pii_app" # 临时文件存储目录
+  device: "cpu"
+  gpu_id: 0
+  
   # Gradio UI 相关设置 (如果适用)
   ui:
     theme: "default" # UI 主题
     share_ui: false   # 是否通过 Gradio 分享 UI
     server_name: "0.0.0.0"
     server_port: 7860
-
-# -------------------------------------------
-# 设备配置 (Device Configuration)
-# -------------------------------------------
-device:
-  use_gpu: true       # 是否优先使用 GPU (如果可用)
-  gpu_id: 0           # 使用的 GPU ID (如果 use_gpu 为 true)
-  use_fp16: true      # 是否为兼容模型启用半精度 (FP16) 推理以提高速度
 
 # -------------------------------------------
 # 处理器配置 (Processor Configuration)
@@ -36,13 +31,49 @@ processor:
 
   # 说话人分割配置
     diarization:
-      model: "pyannote/speaker-diarization-3.1"
-      min_speakers: 1
-      max_speakers: 5
+      enabled             : true
+      auth_token          : "" # huggingface 访问令牌, 如果需要访问私有模型，请设置此值, 优先通过环境变量设置
+      model               : "pyannote/speaker-diarization-3.1"
+      min_speakers        : 1
+      max_speakers        : 5
       min_segment_duration: 1.0
-      segmentation_onset: null  # 使用模型默认值
-      min_duration_on: null     # 使用模型默认值
-      min_duration_off: null    # 使用模型默认值
+      segmentation_onset  : null  # 使用模型默认值
+      min_duration_on     : null  # 使用模型默认值
+      min_duration_off    : null  # 使用模型默认值
+
+    # 语音转录配置
+    transcription:
+      model_size  : "base"  # tiny,       base,    small, medium, large-v1, large-v2, large-v3
+      language    : null  # 目标语言，null表示自动检测
+      compute_type: "float32"  # float16, float32, int8
+      device      : null  # cuda,         cpu,     auto
+      batch_size  : 1  # 批处理大小
+      chunk_size  : 30  # 音频块大小（秒）
+
+      # 对齐配置
+      align_model           : null  # 对齐模型名称，null表示自动选择
+      interpolate_method    : "nearest"  # 插值方法
+      return_char_alignments: false  # 是否返回字符级对齐
+
+      # VAD配置
+      vad_onset           : 0.500  # VAD起始阈值
+      vad_offset          : 0.363  # VAD结束阈值
+      vad_min_duration_on : 0.0  # 最小激活时长
+      vad_min_duration_off: 0.0  # 最小静默时长
+
+      # 解码配置
+      temperature                : 0.0  # 采样温度
+      best_of                    : null  # 候选数量
+      beam_size                  : null  # 束搜索大小
+      patience                   : null  # 束搜索耐心值
+      length_penalty             : null  # 长度惩罚
+      suppress_tokens            : "-1"  # 抑制的令牌
+      initial_prompt             : null  # 初始提示
+      condition_on_previous_text : true  # 是否基于前文条件化
+      fp16                       : true  # 是否使用半精度
+      compression_ratio_threshold: 2.4  # 压缩率阈值
+      logprob_threshold          : -1.0  # 对数概率阈值
+      no_speech_threshold        : 0.6  # 无语音阈值
 
     # 语音转换配置
     voice_conversion:
@@ -53,18 +84,47 @@ processor:
       auto_f0_adjust: true
       default_pitch_shift: 0
 
+    # 语音匿名化配置
+    voice_anonymizer:
+      enabled: true
+      sample_rate: 22050
+      
+      # 蜂鸣音设置
+      beep_frequency: 1000.0    # 蜂鸣音频率（Hz）
+      beep_amplitude: 0.3       # 蜂鸣音音量（0-1）
+      
+      # 通用设置
+      fade_duration: 0.05       # 淡入淡出时长（秒）
+
   text_processor:
+    supported_entities:
+      - PERSON
+      - PHONE_NUMBER
+      - ID_CARD
+      - BANK_CARD
+      - CARD_ID
+      - EMAIL_ADDRESS
+      - CREDIT_CARD
+      - CAR_PLATE
+      - ADDRESS
+      - DATE_TIME
+      - IP_ADDRESS
+      - MAC_ADDRESS
+      - LOCATION
+      - ALL
+    exclude_entities:
+      - NONE
     analyzer:
-      presidio_enabled: true
-      supported_languages: ["zh", "en"]
-      default_language: "zh"
+      presidio_enabled          : true
+      supported_languages       : ["zh", "en"]
+      default_language          : "zh"
       enable_pattern_recognizers: true
-      enable_llm_recognizers: true
-      default_score_threshold: 0.5
-      parallel_processing: false
-      max_workers: 4
-      enable_cache: true
-      cache_size: 1000
+      enable_llm_recognizers    : true
+      default_score_threshold   : 0.5
+      parallel_processing       : false
+      max_workers               : 4
+      enable_cache              : true
+      cache_size                : 1000
       
     anonymizer:
       presidio_enabled: true
@@ -140,22 +200,22 @@ processor:
     # 识别器配置
     recognizers:
       pattern_recognizer:
-        enabled: true
-        id_card: true
+        enabled     : true
+        id_card     : true
         phone_number: true
-        bank_card: true
-        car_plate: true
-        url: true
+        bank_card   : true
+        car_plate   : true
+        url         : true
       llm_recognizer:
         enabled: true  # 启用LLM识别器
         client:
-          type: "gemini"  # 使用Gemini客户端
-          model_name_or_path: "gemini-2.5-flash-preview-05-20"  # 使用最新的Gemini模型
-          temperature: 0  # 修正参数名（从temperatures改为temperature）
-          max_tokens: 20000  # 设置最大token数
-          top_p: 0.9
-          top_k: 50
-          # api_key: "YOUR_API_KEY"  # 请替换为您的API密钥或通过环境变量GEMINI_API_KEY设置
+            type              : "gemini"  # 使用Gemini客户端
+            model_name_or_path: "gemini-2.5-flash-preview-05-20"  # 使用最新的Gemini模型
+            temperature       : 0  # 修正参数名（从temperatures改为temperature）
+            max_tokens        : 20000  # 设置最大token数
+            top_p             : 0.9
+            top_k             : 50
+          # api_key           : "YOUR_API_KEY"  # 请替换为您的API密钥或通过环境变量GEMINI_API_KEY设置
         prompts:
           prompt_template_path: "config/prompt_template.yaml"
         parsers:
